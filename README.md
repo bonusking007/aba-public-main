@@ -1,8 +1,8 @@
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
-getgenv().main = false
-getgenv().alt  = true
+getgenv().main = true
+getgenv().alt  = false
 
 getgenv().MainAccounts = {"Onett10i83"}
 getgenv().AltAccounts  = {"abafarmer912747567", "grandfarmer357215", "RicefarmerGrand1893", "abafarmer96877567"}
