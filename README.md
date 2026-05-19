@@ -4,7 +4,7 @@ repeat task.wait(0.1) until game:IsLoaded()
 getgenv().main = true
 getgenv().alt  = false
 
-getgenv().MainAccounts = {"Onett10i83"}
+getgenv().MainAccounts = {"ใส่ชื่อ main ตรงนี้"}
 getgenv().AltAccounts  = {"abafarmer912747567", "grandfarmer357215", "RicefarmerGrand1893", "abafarmer96877567"}
 -- ==================
 
@@ -124,6 +124,26 @@ end
 
 local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
 
+-- ดึง avatar URL ของ player
+local cachedAvatarUrl = ""
+task.spawn(function()
+	pcall(function()
+		local apiUrl = string.format(
+			"https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=%d&size=420x420&format=Png&isCircular=false",
+			LP.UserId
+		)
+		local resp = HttpService:JSONDecode(game:HttpGet(apiUrl))
+		if resp and resp.data and resp.data[1] and resp.data[1].imageUrl then
+			cachedAvatarUrl = resp.data[1].imageUrl
+		else
+			cachedAvatarUrl = string.format(
+				"https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png",
+				LP.UserId
+			)
+		end
+	end)
+end)
+
 local function sendWebhook(label)
 	task.spawn(function()
 		pcall(function()
@@ -155,18 +175,22 @@ local function sendWebhook(label)
 				Method = "POST",
 				Headers = { ["Content-Type"] = "application/json" },
 				Body = HttpService:JSONEncode({
+					username   = "WW Hub",
+					avatar_url = cachedAvatarUrl,
 					embeds = {{
 						title  = "⚡ WWHub — " .. label,
 						color  = 0x46C864,
+						thumbnail = { url = cachedAvatarUrl },
 						fields = {
-							{ name = "Player", value = LP.Name,   inline = true },
-							{ name = "Money",  value = moneyText, inline = true },
-							{ name = "Level",  value = lvlText,   inline = true },
-							{ name = "Points", value = pts,       inline = true },
-							{ name = "Alts in Server", value = altCount .. " / " .. #getgenv().AltAccounts, inline = true },
-							{ name = "Alt Names", value = altList, inline = false },
+							{ name = "👤 Player", value = LP.DisplayName .. " (@" .. LP.Name .. ")", inline = false },
+							{ name = "💰 Money",  value = moneyText, inline = true },
+							{ name = "⭐ Level",  value = lvlText,   inline = true },
+							{ name = "🎯 Points", value = pts,       inline = true },
+							{ name = "👥 Alts", value = altCount .. " / " .. #getgenv().AltAccounts, inline = true },
+							{ name = "📋 Alt Names", value = altList, inline = false },
 						},
-						footer = { text = os.date("%d/%m/%Y %H:%M:%S") }
+						footer = { text = "WWHub • " .. os.date("%d/%m/%Y %H:%M:%S") },
+						timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
 					}}
 				})
 			})
