@@ -340,6 +340,20 @@ local function pressK()
 	pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.K, false, game) end)
 end
 
+-- spam G key ไวๆ สำหรับ main farm
+task.spawn(function()
+	while gui and gui.Parent do
+		if loopMain and not roundPaused and not timerTpDone and not starting then
+			pcall(function()
+				VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.G, false, game)
+				task.wait(0.03)
+				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+			end)
+		end
+		task.wait(0.05)
+	end
+end)
+
 -- Anti-AFK
 pcall(function()
 	LP.Idled:Connect(function()
@@ -539,7 +553,7 @@ task.spawn(function()
 			end
 
 			-- timer ≤ 10 → หยุดฟาร์ม + TP safezone
-			if timer > 0 and timer <= 10 and not timerTpDone and not roundPaused then
+			if timer > 0 and timer <= 2 and not timerTpDone and not roundPaused then
 				timerTpDone = true
 				tpToSafeZone()
 			end
@@ -594,7 +608,7 @@ end
 
 -- ===== GUI =====
 gui = Instance.new("ScreenGui")
-gui.Name          = "WWHub_GUI"
+gui.Name          = "WWHub_GUI_v4"
 gui.ResetOnSpawn  = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent        = game.CoreGui
@@ -663,7 +677,7 @@ local titleLbl = Instance.new("TextLabel")
 titleLbl.Size               = UDim2.new(1, -50, 1, 0)
 titleLbl.Position           = UDim2.new(0, 12, 0, 0)
 titleLbl.BackgroundTransparency = 1
-titleLbl.Text               = "⚡ WW Hub"
+titleLbl.Text               = "⚡ WW Hub v4"
 titleLbl.TextColor3         = Color3.fromRGB(155, 80, 255)
 titleLbl.TextSize           = 19
 titleLbl.Font               = Enum.Font.GothamBold
@@ -818,22 +832,118 @@ task.spawn(function()
 	end
 end)
 
+-- ดึง level จาก HUD
+local function getLevel()
+	local ok, v = pcall(function()
+		local hud = LP.PlayerGui:FindFirstChild("HUD")
+		if not hud then return "?" end
+		local lvlObj = hud:FindFirstChild("RightBotCorner")
+			and hud.RightBotCorner:FindFirstChild("Line2")
+			and hud.RightBotCorner.Line2:FindFirstChild("Lvl")
+		if lvlObj then
+			return tostring(tonumber(lvlObj.Text:match("%d+")) or "?")
+		end
+		return "?"
+	end)
+	return ok and v or "?"
+end
+
 -- นับ alt ที่อยู่ในเซิฟ
 local function countAltsInServer()
 	local count = 0
 	for _, alt in ipairs(getgenv().AltAccounts) do
-		if Players:FindFirstChild(alt) then
-			count += 1
-		end
+		if Players:FindFirstChild(alt) then count += 1 end
 	end
 	return count
 end
+
+-- เช็คว่า alt ดันไปอยู่ทีม Red (ทีม main) ไหม
+local function isAltOnWrongTeam()
+	if not loopAlt then return false end
+	local char = getChar()
+	if not char then return false end
+	-- เช็คจาก team color หรือ team name
+	local ok, wrong = pcall(function()
+		local team = LP.Team
+		if team then
+			local name = team.Name:lower()
+			return name:find("red") ~= nil
+		end
+		return false
+	end)
+	return ok and wrong or false
+end
+
+-- NoClip loop สำหรับ main (ป้องกันชนกัน แต่ไม่ตก void)
+local noClipEnabled = false
+task.spawn(function()
+	while gui.Parent do
+		if loopMain and not roundPaused and not timerTpDone then
+			if not noClipEnabled then
+				noClipEnabled = true
+			end
+			local char = getChar()
+			if char then
+				for _, part in ipairs(char:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+				-- ป้องกัน void: ถ้า Y ต่ำเกิน 0 ให้ดึงขึ้น
+				local hrp = getHRP()
+				if hrp and hrp.Position.Y < -10 then
+					pcall(function()
+						hrp.CFrame = CFrame.new(hrp.Position.X, 5, hrp.Position.Z)
+						hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+					end)
+				end
+			end
+		else
+			if noClipEnabled then
+				noClipEnabled = false
+				-- คืน collision ปกติ
+				local char = getChar()
+				if char then
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") then
+							part.CanCollide = true
+						end
+					end
+				end
+			end
+		end
+		task.wait(0.1)
+	end
+end)
+
+-- ตรวจ alt อยู่ทีมผิด → TP safezone รอตาใหม่
+task.spawn(function()
+	while gui.Parent do
+		if loopAlt and not roundPaused and not timerTpDone then
+			if isAltOnWrongTeam() then
+				warn("[WWHub] Alt on wrong team (Red) — going to safezone")
+				roundPaused      = true
+				roundPauseReason = "Wrong Team"
+				tpToSafeZone()
+				-- รอจน team pad โผล่ = ตาใหม่
+				repeat task.wait(1) until
+					workspace:FindFirstChild("Blue Team") or
+					workspace:FindFirstChild("Red Team") or
+					not gui.Parent
+				task.wait(2)
+				roundPaused      = false
+				roundPauseReason = nil
+			end
+		end
+		task.wait(1)
+	end
+end)
 
 -- Status sync
 task.spawn(function()
 	while gui and gui.Parent do
 		local altCount = countAltsInServer()
-		local altStr = " | alt=" .. altCount .. "/" .. #getgenv().AltAccounts
+		local altStr = " | alt=" .. altCount .. "/" .. #getgenv().AltAccounts .. " | Lvl:" .. getLevel()
 
 		if starting then
 			statusLbl.TextColor3 = Color3.fromRGB(255, 200, 50)
