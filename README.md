@@ -4,8 +4,8 @@ repeat task.wait(0.1) until game:IsLoaded()
 getgenv().main = true
 getgenv().alt  = false
 
-getgenv().MainAccounts = {"ใส่ชื่อ main ตรงนี้"}
-getgenv().AltAccounts  = {"abafarmer912747567", "grandfarmer357215", "RicefarmerGrand1893", "abafarmer96877567"}
+getgenv().MainAccounts = {"Onett10i83", "DITR08394", "GodJirazo83641"}
+getgenv().AltAccounts  = {"Tehanarrue73732", "Tafeshyra30895", "Bosbygreem98023", "Tifafalce200", "Breseherms531", "Palasshary9069", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
 setfpscap(30)
