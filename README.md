@@ -4,11 +4,11 @@ repeat task.wait(0.1) until game:IsLoaded()
 getgenv().main = true
 getgenv().alt  = false
 
-getgenv().MainAccounts = {"Onett10i83", "DITR08394", "GodJirazo83641"}
+getgenv().MainAccounts = {"quilava_assassin", "Botan3679", "Shuhua_Ping"}
 getgenv().AltAccounts  = {"Yoko_7822", "IbukiGames8927", "keiichi3742", "coconaphoenix", "ErikoShadow2413", "Shingo_3587", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
-setfpscap(30)
+setfpscap(25)
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualUser = game:GetService("VirtualUser")
