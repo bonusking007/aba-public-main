@@ -16,8 +16,6 @@ local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
 local LP = Players.LocalPlayer
 
-local isRoundEnding = false
-
 -- MAIN: ตรวจว่ามี alt ในเซิฟ ถ้าไม่มีให้ hop
 task.spawn(function()
 	if not getgenv().main then return end
@@ -28,7 +26,6 @@ task.spawn(function()
 			if Players:FindFirstChild(alt) then found = true break end
 		end
 		if not found then
-			-- ตรวจซ้ำ 3 ครั้งก่อน hop
 			local confirm = 0
 			for _ = 1, 3 do
 				task.wait(5)
@@ -557,15 +554,9 @@ task.spawn(function()
 				end
 			end
 
-			-- timer ≤ 2 → หยุดฟาร์ม + TP safezone + flag round ending
 			if timer > 0 and timer <= 2 and not timerTpDone and not roundPaused then
-				timerTpDone    = true
-				isRoundEnding  = true
+				timerTpDone = true
 				tpToSafeZone()
-				-- reset flag หลัง 20 วิ (โหลดตาใหม่เสร็จแล้ว)
-				task.delay(20, function()
-					isRoundEnding = false
-				end)
 			end
 
 			if timerTpDone then
@@ -579,7 +570,6 @@ task.spawn(function()
 		else
 			pointsCapped  = false
 			timerTpDone   = false
-			isRoundEnding = false
 		end
 	end
 end)
@@ -608,7 +598,6 @@ startFarm = function(mode)
 	roundResetting   = false
 	timerTpDone      = false
 	pointsCapped     = false
-	isRoundEnding    = false
 	if mode == "alt" then loopAlt  = true
 	else                  loopMain = true end
 	if mode == "main" then sendWebhook("Main Farm Started") end
@@ -1051,58 +1040,6 @@ task.spawn(function()
 		task.wait(30)
 		if loopMain and not roundPaused then
 			sendWebhook("Main Farm Report")
-		end
-	end
-end)
-
--- ===== Rejoin (แก้แล้ว — ไม่ trigger ตอนจบตา) =====
-local TeleportService = game:GetService("TeleportService")
-local placeId = game.PlaceId
-
-local function rejoin()
-	if isRoundEnding then return end -- ป้องกัน rejoin ตอนจบตา
-	pcall(function() sendWebhook("🔄 Rejoining — kicked/disconnected") end)
-	task.wait(3)
-	pcall(function() TeleportService:Teleport(placeId) end)
-	task.wait(3)
-	pcall(function() TeleportService:TeleportToRandomPlace(placeId) end)
-end
-
-LP.OnTeleport:Connect(function(state)
-	if state == Enum.TeleportState.RequestedFromServer and not isRoundEnding then
-		task.wait(3)
-		rejoin()
-	end
-end)
-
--- AncestryChanged: เช็ค isRoundEnding ก่อน rejoin
-LP.AncestryChanged:Connect(function(_, parent)
-	if not parent and not isRoundEnding then
-		rejoin()
-	end
-end)
-
-pcall(function()
-	LP.Kicked:Connect(function()
-		if not isRoundEnding then rejoin() end
-	end)
-end)
-
--- Heartbeat watchdog: threshold 60 วิ + เช็ค isRoundEnding
-task.spawn(function()
-	local lastBeat = tick()
-	game:GetService("RunService").Heartbeat:Connect(function()
-		lastBeat = tick()
-	end)
-	while true do
-		task.wait(15)
-		if tick() - lastBeat > 60 and not isRoundEnding then
-			if not Players:FindFirstChild(LP.Name) then
-				rejoin()
-				break
-			else
-				lastBeat = tick()
-			end
 		end
 	end
 end)
