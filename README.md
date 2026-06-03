@@ -124,7 +124,7 @@ local pressedKChar     = nil
 local timerTpDone      = false
 local gui              = nil
 
-local pointCapLimit = 9900
+local pointCapLimit = 100000
 
 local _request
 if not pcall(function()
