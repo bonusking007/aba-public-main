@@ -5,7 +5,7 @@ getgenv().main = true
 getgenv().alt  = false
 
 getgenv().MainAccounts = {"Xiong4448", "Botan3679", "Shuhua_Ping"}
-getgenv().AltAccounts  = {"MaoDev9681", "BangchanEight", "gakuto_4850", "Keita_Light", "soyeonhundred", "takara_mythic", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
+getgenv().AltAccounts  = {"MaoDev9681", "BangchanEight", "gakuto_4850", "Chaeyoung_Ao", "Bing_Junji", "Sayuri_Keita", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
 setfpscap(25)
@@ -124,7 +124,7 @@ local pressedKChar     = nil
 local timerTpDone      = false
 local gui              = nil
 
-local pointCapLimit = 100000
+local pointCapLimit = 9900
 
 local _request
 if not pcall(function()
