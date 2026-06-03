@@ -4,8 +4,8 @@ repeat task.wait(0.1) until game:IsLoaded()
 getgenv().main = true
 getgenv().alt  = false
 
-getgenv().MainAccounts = {"quilava_assassin", "Botan3679", "Shuhua_Ping"}
-getgenv().AltAccounts  = {"Akihiro_3400", "natsuo5480", "Cai_Trafalgar", "Keita_Light", "soyeonhundred", "takara_mythic", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
+getgenv().MainAccounts = {"Xiong4448", "Botan3679", "Shuhua_Ping"}
+getgenv().AltAccounts  = {"MaoDev9681", "BangchanEight", "gakuto_4850", "Keita_Light", "soyeonhundred", "takara_mythic", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
 setfpscap(25)
