@@ -5,7 +5,7 @@ getgenv().main = true
 getgenv().alt  = false
 
 getgenv().MainAccounts = {"Xiong4448", "Botan3679", "Shuhua_Ping"}
-getgenv().AltAccounts  = {"MaoDev9681", "BangchanEight", "gakuto_4850", "Chaeyoung_Ao", "Bing_Junji", "Sayuri_Keita", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
+getgenv().AltAccounts  = {"Lan_4190", "gakuto7464", "Nodoka_Junsei", "Ya8863", "kota6447", "rikako_tank", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
 setfpscap(25)
