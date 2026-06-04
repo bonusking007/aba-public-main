@@ -4,8 +4,8 @@ repeat task.wait(0.1) until game:IsLoaded()
 getgenv().main = true
 getgenv().alt  = false
 
-getgenv().MainAccounts = {"Xiong4448", "Botan3679", "Shuhua_Ping"}
-getgenv().AltAccounts  = {"Lan_4190", "gakuto7464", "Nodoka_Junsei", "Ya8863", "Geng_Sen", "rikako_tank", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
+getgenv().MainAccounts = {"Xiong4448", "fumiko_guan", "Shuhua_Ping"}
+getgenv().AltAccounts  = {"Emilia_Yoriichi", "Sanae7636", "Ikumi_6161", "akane_nuo", "HengGhost6606", "rikako_tank", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
 setfpscap(25)
@@ -124,7 +124,7 @@ local pressedKChar     = nil
 local timerTpDone      = false
 local gui              = nil
 
-local pointCapLimit = 100000
+local pointCapLimit = 9900
 
 local _request
 if not pcall(function()
