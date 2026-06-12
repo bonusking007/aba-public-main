@@ -4,7 +4,7 @@ repeat task.wait(0.1) until game:IsLoaded()
 getgenv().main = true
 getgenv().alt  = false
 
-getgenv().MainAccounts = {"Xiong4448", "bao_5819", "Shuhua_Ping"}
+getgenv().MainAccounts = {"Xiong4448", "Long_4030", "Shuhua_Ping"}
 getgenv().AltAccounts  = {"Anri8420", "yui_stream", "Sui_5096", "hisako619", "Takumi_7454", "Song7099", "Gardirime87348", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
