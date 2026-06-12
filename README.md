@@ -8,7 +8,7 @@ getgenv().MainAccounts = {"Xiong4448", "Long_4030", "Shuhua_Ping"}
 getgenv().AltAccounts  = {"Anri8420", "yui_stream", "Sui_5096", "hisako619", "Takumi_7454", "Song7099", "taichi_saki", "Ze_Rurika", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 -- ==================
 
-setfpscap(30)
+setfpscap(25)
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualUser = game:GetService("VirtualUser")
@@ -16,7 +16,7 @@ local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
 local LP = Players.LocalPlayer
 
--- MAIN: ตรวจว่ามี alt ในเซิฟ ถ้าไม่มีให้ hop (ตรวจตอนเริ่ม + ทุก 30 นาที)
+-- MAIN: ตรวจว่ามี alt ในเซิฟ ถ้าไม่มีให้ hop
 task.spawn(function()
 	if not getgenv().main then return end
 	task.wait(5)
@@ -26,7 +26,20 @@ task.spawn(function()
 			if Players:FindFirstChild(alt) then found = true break end
 		end
 		if not found then
-			warn("[WWHub] Alt not found — hopping server...")
+			local confirm = 0
+			for _ = 1, 3 do
+				task.wait(5)
+				local recheck = false
+				for _, alt in ipairs(getgenv().AltAccounts) do
+					if Players:FindFirstChild(alt) then recheck = true break end
+				end
+				if recheck then
+					warn("[WWHub] Alt found on recheck — staying")
+					return
+				end
+				confirm += 1
+			end
+			warn("[WWHub] Alt not found after recheck — hopping...")
 			pcall(function() game:GetService("TeleportService"):TeleportToRandomPlace(game.PlaceId) end)
 		else
 			warn("[WWHub] Alt found — staying")
@@ -40,7 +53,7 @@ task.spawn(function()
 	end
 end)
 
--- ALT: ตรวจว่ามี main ในเซิฟ ถ้าไม่เจอใน 5 นาทีให้ hop
+-- ALT: ตรวจว่ามี main ในเซิฟ ถ้าไม่เจอใน 10 นาทีให้ hop
 task.spawn(function()
 	if not getgenv().alt then return end
 	task.wait(5)
@@ -50,25 +63,23 @@ task.spawn(function()
 		end
 		return false
 	end
-	-- ตรวจแรก: รอ 5 นาที ถ้าไม่เจอ main เลยให้ hop
 	local found = false
-	for _ = 1, 30 do -- loop 30 ครั้ง x 10 วิ = 5 นาที
+	for _ = 1, 60 do
 		if checkMain() then found = true break end
 		task.wait(10)
 	end
 	if not found then
-		warn("[WWHub] Main not found after 5min — hopping...")
+		warn("[WWHub] Main not found after 10min — hopping...")
 		pcall(function() game:GetService("TeleportService"):TeleportToRandomPlace(game.PlaceId) end)
 		return
 	end
-	-- หลังจากนั้น loop check เรื่อยๆ ถ้า main หายไปแล้วไม่กลับมาใน 5 นาทีก็ hop
 	while true do
 		task.wait(10)
 		if not getgenv().alt then break end
 		if not checkMain() then
-			warn("[WWHub] Main left server — waiting 5min before hop...")
+			warn("[WWHub] Main left server — waiting 10min before hop...")
 			local came_back = false
-			for _ = 1, 30 do -- 30 x 10 วิ = 5 นาที
+			for _ = 1, 60 do
 				task.wait(10)
 				if checkMain() then came_back = true break end
 			end
@@ -82,14 +93,10 @@ task.spawn(function()
 		end
 	end
 end)
-			end
-		end
-	end
-end)
 
 local altCFrame        = CFrame.new(20000, 2000, 20000)
-local pauseCFrame      = CFrame.new(156, 1, -43)    -- safezone main
-local pauseCFrameAlt   = CFrame.new(36, 5, -13)     -- safezone alt
+local pauseCFrame      = CFrame.new(156, 1, -43)
+local pauseCFrameAlt   = CFrame.new(36, 5, -13)
 local baseName         = "WWHub_BasePlate"
 
 local tpDistanceLimit      = 18
@@ -117,7 +124,7 @@ local pressedKChar     = nil
 local timerTpDone      = false
 local gui              = nil
 
-local pointCapLimit = 100000
+local pointCapLimit = 990000
 
 local _request
 if not pcall(function()
@@ -128,7 +135,6 @@ end
 
 local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
 
--- ดึง avatar URL ของ player
 local cachedAvatarUrl = ""
 task.spawn(function()
 	pcall(function()
@@ -163,7 +169,6 @@ local function sendWebhook(label)
 				end
 				pts = tostring(LP.leaderstats.Points.Value)
 			end)
-			-- นับ alt ในเซิฟ
 			for _, alt in ipairs(getgenv().AltAccounts) do
 				if Players:FindFirstChild(alt) then altCount += 1 end
 			end
@@ -224,7 +229,6 @@ local function fireInput(action, data)
 	end)
 end
 
--- TP ไป CFrame แล้ว loop จนกว่าจะถึง (distance ≤ limit)
 local function tpToUntilArrived(cf, limit, maxTries)
 	limit    = limit    or safeZoneLimit
 	maxTries = maxTries or 20
@@ -241,7 +245,7 @@ local function tpToUntilArrived(cf, limit, maxTries)
 				task.wait(0.25)
 				hrp = getHRP()
 				if hrp and (hrp.Position - cf.Position).Magnitude <= limit then
-					break -- ถึงแล้ว
+					break
 				end
 			end
 			task.wait(0.25)
@@ -344,7 +348,6 @@ local function pressK()
 	pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.K, false, game) end)
 end
 
--- spam G key ไวๆ สำหรับ main farm
 task.spawn(function()
 	while gui and gui.Parent do
 		if loopMain and not roundPaused and not timerTpDone and not starting then
@@ -358,7 +361,6 @@ task.spawn(function()
 	end
 end)
 
--- Anti-AFK
 pcall(function()
 	LP.Idled:Connect(function()
 		pcall(function()
@@ -483,7 +485,6 @@ local function getBlockedFarmMode()
 	return nil
 end
 
--- drain lives: reset ซ้ำจนกว่า mode lives/juggernaut จะหมดเลย
 local function drainLives()
 	print("[WWHub] Draining lives until round ends...")
 	while gui and gui.Parent and (loopMain or loopAlt) do
@@ -513,7 +514,6 @@ local function pauseFarmForRound(reason)
 	task.spawn(function()
 		drainLives()
 		tpToSafeZone()
-		-- รอจน blocked mode หาย
 		local clear = 0
 		while gui and gui.Parent and (loopMain or loopAlt) and roundPaused do
 			local bm = getBlockedFarmMode()
@@ -538,7 +538,6 @@ local function pauseFarmForRound(reason)
 end
 
 -- ===== Timer watchdog =====
--- หยุด M1/skill + TP safezone เมื่อ timer ≤ 10
 task.spawn(function()
 	while true do
 		task.wait(0.3)
@@ -546,7 +545,6 @@ task.spawn(function()
 			local pts   = getPoints()
 			local timer = getTimerValue()
 
-			-- point cap (main เท่านั้น)
 			if loopMain then
 				if not pointsCapped and pts >= pointCapLimit then
 					pointsCapped = true
@@ -556,15 +554,11 @@ task.spawn(function()
 				end
 			end
 
-			-- timer ≤ 10 → หยุดฟาร์ม + TP safezone
 			if timer > 0 and timer <= 2 and not timerTpDone and not roundPaused then
 				timerTpDone = true
 				tpToSafeZone()
 			end
 
-			-- reset flag เมื่อตาใหม่:
-			-- 1) timer กลับมาสูง
-			-- 2) team pad โผล่ = ตาใหม่เริ่มแล้ว reset ทันที
 			if timerTpDone then
 				local padExists = workspace:FindFirstChild("Red Team")
 					or workspace:FindFirstChild("Blue Team")
@@ -574,8 +568,8 @@ task.spawn(function()
 				end
 			end
 		else
-			pointsCapped = false
-			timerTpDone  = false
+			pointsCapped  = false
+			timerTpDone   = false
 		end
 	end
 end)
@@ -588,25 +582,16 @@ startFarm = function(mode)
 	loopAlt  = false
 	loopMain = false
 	makeBase()
-	local function selectCharPlay()
-		if mode == "alt" then
-			-- alt ใช้ Random
-			local bp = LP:FindFirstChild("Backpack")
-			local inp = (bp and bp:FindFirstChild("Input"))
-				or (getChar() and getChar():FindFirstChild("Input"))
-				or LP:FindFirstChild("Input")
-			if inp then pcall(function() inp:FireServer("CharacterButton", "Random") end) end
-		else
-			fireInput("CharacterButton", "Ichigo")
-		end
+	local function selectIchigoPlay()
+		fireInput("CharacterButton", "Ichigo")
 		task.wait(0.2)
 		fireInput("ClickPlay")
 	end
-	selectCharPlay()
+	selectIchigoPlay()
 	task.wait(2.5)
 	resetCharacter()
 	task.wait(2.5)
-	selectCharPlay()
+	selectIchigoPlay()
 	task.wait(2.5)
 	roundPaused      = false
 	roundPauseReason = nil
@@ -624,10 +609,8 @@ gui = Instance.new("ScreenGui")
 gui.Name          = "WWHub_GUI_v4"
 gui.ResetOnSpawn  = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.DisplayOrder  = 0  -- ไม่บัง BillboardGui ชื่อ player
 gui.Parent        = game.CoreGui
 
--- Toggle ⚡ button
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size             = UDim2.new(0, 42, 0, 42)
 toggleBtn.Position         = UDim2.new(0, 10, 0.5, -21)
@@ -642,7 +625,6 @@ Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
 local ts = Instance.new("UIStroke", toggleBtn)
 ts.Color = Color3.fromRGB(110, 40, 200); ts.Thickness = 2
 
--- Panel
 local panel = Instance.new("Frame")
 panel.Size             = UDim2.new(0, 280, 0, 320)
 panel.Position         = UDim2.new(0.5, -140, 0.5, -160)
@@ -654,7 +636,6 @@ Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 14)
 local ps = Instance.new("UIStroke", panel)
 ps.Color = Color3.fromRGB(100, 35, 190); ps.Thickness = 2
 
--- Drag PC + Mobile
 local dragging, dragStart, startPos
 panel.InputBegan:Connect(function(inp)
 	if inp.UserInputType == Enum.UserInputType.MouseButton1
@@ -679,7 +660,6 @@ if UIS then
 	end)
 end
 
--- Header
 local header = Instance.new("Frame")
 header.Size             = UDim2.new(1, 0, 0, 48)
 header.BackgroundColor3 = Color3.fromRGB(20, 20, 32)
@@ -793,7 +773,6 @@ local function setStatus(txt) statusLbl.Text = "📊 " .. txt end
 toggleBtn.MouseButton1Click:Connect(function()
 	panel.Visible = not panel.Visible
 end)
-
 altBtn.MouseButton1Click:Connect(function()
 	setStatus("Starting ALT...")
 	task.spawn(function() startFarm("alt") end)
@@ -834,7 +813,6 @@ destroyBtn.MouseButton1Click:Connect(function()
 	gui:Destroy()
 end)
 
--- Auto-start จาก _G
 task.spawn(function()
 	task.wait(0.5)
 	if getgenv().main then
@@ -846,7 +824,6 @@ task.spawn(function()
 	end
 end)
 
--- ดึง level จาก HUD
 local function getLevel()
 	local ok, v = pcall(function()
 		local hud = LP.PlayerGui:FindFirstChild("HUD")
@@ -862,7 +839,6 @@ local function getLevel()
 	return ok and v or "?"
 end
 
--- นับ alt ที่อยู่ในเซิฟ
 local function countAltsInServer()
 	local count = 0
 	for _, alt in ipairs(getgenv().AltAccounts) do
@@ -871,12 +847,10 @@ local function countAltsInServer()
 	return count
 end
 
--- เช็คว่า alt ดันไปอยู่ทีม Red (ทีม main) ไหม
 local function isAltOnWrongTeam()
 	if not loopAlt then return false end
 	local char = getChar()
 	if not char then return false end
-	-- เช็คจาก team color หรือ team name
 	local ok, wrong = pcall(function()
 		local team = LP.Team
 		if team then
@@ -888,22 +862,16 @@ local function isAltOnWrongTeam()
 	return ok and wrong or false
 end
 
--- NoClip loop สำหรับ main (ป้องกันชนกัน แต่ไม่ตก void)
 local noClipEnabled = false
 task.spawn(function()
 	while gui.Parent do
 		if loopMain and not roundPaused and not timerTpDone then
-			if not noClipEnabled then
-				noClipEnabled = true
-			end
+			if not noClipEnabled then noClipEnabled = true end
 			local char = getChar()
 			if char then
 				for _, part in ipairs(char:GetDescendants()) do
-					if part:IsA("BasePart") then
-						part.CanCollide = false
-					end
+					if part:IsA("BasePart") then part.CanCollide = false end
 				end
-				-- ป้องกัน void: ถ้า Y ต่ำเกิน 0 ให้ดึงขึ้น
 				local hrp = getHRP()
 				if hrp and hrp.Position.Y < -10 then
 					pcall(function()
@@ -915,13 +883,10 @@ task.spawn(function()
 		else
 			if noClipEnabled then
 				noClipEnabled = false
-				-- คืน collision ปกติ
 				local char = getChar()
 				if char then
 					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then
-							part.CanCollide = true
-						end
+						if part:IsA("BasePart") then part.CanCollide = true end
 					end
 				end
 			end
@@ -930,7 +895,6 @@ task.spawn(function()
 	end
 end)
 
--- ตรวจ alt อยู่ทีมผิด → TP safezone รอตาใหม่
 task.spawn(function()
 	while gui.Parent do
 		if loopAlt and not roundPaused and not timerTpDone then
@@ -939,7 +903,6 @@ task.spawn(function()
 				roundPaused      = true
 				roundPauseReason = "Wrong Team"
 				tpToSafeZone()
-				-- รอจน team pad โผล่ = ตาใหม่
 				repeat task.wait(1) until
 					workspace:FindFirstChild("Blue Team") or
 					workspace:FindFirstChild("Red Team") or
@@ -953,12 +916,10 @@ task.spawn(function()
 	end
 end)
 
--- Status sync
 task.spawn(function()
 	while gui and gui.Parent do
 		local altCount = countAltsInServer()
 		local altStr = " | alt=" .. altCount .. "/" .. #getgenv().AltAccounts .. " | Lvl:" .. getLevel()
-
 		if starting then
 			statusLbl.TextColor3 = Color3.fromRGB(255, 200, 50)
 			statusLbl.Font       = Enum.Font.GothamBold
@@ -980,7 +941,6 @@ task.spawn(function()
 			statusLbl.TextSize   = 13
 			setStatus("🎯 Cap! pts=" .. getPoints() .. altStr)
 		elseif loopAlt then
-			-- ALT: เด่น สีเขียวสว่าง ตัวใหญ่
 			statusLbl.TextColor3 = Color3.fromRGB(80, 255, 140)
 			statusLbl.Font       = Enum.Font.GothamBold
 			statusLbl.TextSize   = 14
@@ -1001,8 +961,6 @@ task.spawn(function()
 end)
 
 -- ===== Farm Loops =====
-
--- Character check + pressK
 task.spawn(function()
 	makeBase()
 	while gui.Parent do
@@ -1015,12 +973,10 @@ task.spawn(function()
 	end
 end)
 
--- TP loop (ลด 0.08 → 0.15)
 task.spawn(function()
 	while gui.Parent do
-		if not (loopAlt or loopMain) then task.wait(0.5) continue end
 		local pad = getTeamPad()
-		if pad and not selectingTeam and not roundPaused and not timerTpDone then
+		if pad and not selectingTeam and not roundPaused and not timerTpDone and (loopAlt or loopMain) then
 			task.spawn(selectTeam)
 		end
 		if not selectingTeam and not jugResetting and not starting and not roundPaused and not timerTpDone then
@@ -1030,11 +986,10 @@ task.spawn(function()
 			elseif loopAlt  then tpAlt()
 			elseif loopMain then tpMain() end
 		end
-		task.wait(0.15)
+		task.wait(0.08)
 	end
 end)
 
--- M1 loop (ลด 0.12 → 0.18)
 task.spawn(function()
 	while gui.Parent do
 		if loopMain and not jugResetting and not starting
@@ -1042,11 +997,10 @@ task.spawn(function()
 			and not pointsCapped and not timerTpDone then
 			fireM1()
 		end
-		task.wait(0.18)
+		task.wait(0.12)
 	end
 end)
 
--- Skill loop (เพิ่มจาก 0.8 → 1.0)
 task.spawn(function()
 	while gui.Parent do
 		if loopMain and not jugResetting and not starting
@@ -1054,24 +1008,20 @@ task.spawn(function()
 			and not pointsCapped and not timerTpDone then
 			fireSkills()
 		end
-		task.wait(1.0)
+		task.wait(0.8)
 	end
 end)
 
--- Blocked mode check (ลด frequency เมื่อ idle)
 task.spawn(function()
 	while gui.Parent do
 		if (loopMain or loopAlt) and not starting and not roundPaused then
 			local bm = getBlockedFarmMode()
 			if bm then pauseFarmForRound(bm) end
-			task.wait(0.5)
-		else
-			task.wait(2)
 		end
+		task.wait(0.5)
 	end
 end)
 
--- Mode vote loop
 task.spawn(function()
 	local modes = {"Kills Team","Team Battle","3 Teams","Free For All","Kills FFA"}
 	while gui.Parent do
@@ -1080,77 +1030,16 @@ task.spawn(function()
 				fireInput("mode", mode)
 				task.wait(0.3)
 			end
-			task.wait(2)
-		else
-			task.wait(3)
 		end
+		task.wait(1)
 	end
 end)
 
--- Webhook report ทุก 30 วิ
 task.spawn(function()
 	while gui.Parent do
 		task.wait(30)
 		if loopMain and not roundPaused then
 			sendWebhook("Main Farm Report")
-		end
-	end
-end)
-
--- Garbage collect ทุก 60 วิ ป้องกัน memory leak
-task.spawn(function()
-	while gui and gui.Parent do
-		task.wait(60)
-		collectgarbage("collect")
-	end
-end)
-
--- Auto rejoin เมื่อโดน kick / disconnect
-local TeleportService = game:GetService("TeleportService")
-local placeId = game.PlaceId
-
-local function rejoin()
-	pcall(function() sendWebhook("🔄 Rejoining — kicked/disconnected") end)
-	task.wait(3)
-	pcall(function() TeleportService:Teleport(placeId) end)
-	-- fallback ถ้า Teleport ไม่ทำงาน
-	task.wait(3)
-	pcall(function() TeleportService:TeleportToRandomPlace(placeId) end)
-end
-
--- จับ kick ทุกประเภท
--- 1) OnTeleport: kicked by server/mod
-LP.OnTeleport:Connect(function(state)
-	if state == Enum.TeleportState.RequestedFromServer then
-		task.wait(3)
-		rejoin()
-	end
-end)
-
--- 2) AncestryChanged: LocalPlayer ถูก remove = kicked/disconnect
-LP.AncestryChanged:Connect(function(_, parent)
-	if not parent then rejoin() end
-end)
-
--- 3) Kicked event: "kicked by the game" ตรงๆ
-pcall(function()
-	LP.Kicked:Connect(function()
-		rejoin()
-	end)
-end)
-
--- 4) Heartbeat watchdog: ถ้า ping หาย / network timeout
-task.spawn(function()
-	local lastBeat = tick()
-	game:GetService("RunService").Heartbeat:Connect(function()
-		lastBeat = tick()
-	end)
-	while true do
-		task.wait(10)
-		if tick() - lastBeat > 15 then
-			-- Heartbeat หยุดนานเกิน 15 วิ = network ตาย
-			rejoin()
-			break
 		end
 	end
 end)
