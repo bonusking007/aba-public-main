@@ -1,107 +1,111 @@
+--- V.5.0
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
-getgenv().main = true
-getgenv().alt  = false
+-- ใส่ชื่อตัวเองในช่องที่ตรงกับ role
+-- main = ฟาร์ม baseplate ปกติ
+-- alt  = ฟาร์ม baseplate (ทีม blue)
+-- guard = ไป m1/skill/G ใส่ผู้เล่นคนอื่นทุกคนในเซิฟ
 
-getgenv().MainAccounts = {"Xiong4448", "Long_4030", "Shuhua_Ping"}
-getgenv().AltAccounts  = {"Anri8420", "yui_stream", "Sui_5096", "hisako619", "Takumi_7454", "Song7099", "taichi_saki", "Ze_Rurika", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
+_G.main  = {"Xiong4448", "Long_4030", "Shuhua_Ping"}
+_G.alt   = {"ojexrppy9770", "rwfi55ngxj28", "vgakarhu6240", "ibdm14ljog99", "bnevporw3273", "mhqdcvee3722", "dagasvqp5610", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
+_G.guard = {"qaaxvbyw5047"} -- ใส่ชื่อ guard ตรงนี้
 -- ==================
 
 setfpscap(25)
-local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local VirtualUser = game:GetService("VirtualUser")
-local HttpService = game:GetService("HttpService")
-local UIS = game:GetService("UserInputService")
-local LP = Players.LocalPlayer
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VIM        = game:GetService("VirtualInputManager")
+local VUser      = game:GetService("VirtualUser")
+local Http       = game:GetService("HttpService")
+local UIS        = game:GetService("UserInputService")
+local TS         = game:GetService("TeleportService")
+local LP         = Players.LocalPlayer
 
--- MAIN: ตรวจว่ามี alt ในเซิฟ ถ้าไม่มีให้ hop
+-- ตรวจว่าตัวเองเป็น role อะไร
+local myName = LP.Name
+local IS_MAIN  = false
+local IS_ALT   = false
+local IS_GUARD = false
+
+for _, n in ipairs(_G.main)  do if n == myName then IS_MAIN  = true end end
+for _, n in ipairs(_G.alt)   do if n == myName then IS_ALT   = true end end
+for _, n in ipairs(_G.guard) do if n == myName then IS_GUARD = true end end
+
+warn("[WWHub] Role: " .. (IS_MAIN and "MAIN" or IS_ALT and "ALT" or IS_GUARD and "GUARD" or "UNKNOWN"))
+
+-- ===== Server hop checks =====
+-- MAIN: ต้องมี alt อยู่ในเซิฟ
 task.spawn(function()
-	if not getgenv().main then return end
+	if not IS_MAIN then return end
 	task.wait(5)
 	local function checkAlts()
-		local found = false
-		for _, alt in ipairs(getgenv().AltAccounts) do
-			if Players:FindFirstChild(alt) then found = true break end
+		for _, n in ipairs(_G.alt) do
+			if Players:FindFirstChild(n) then return true end
 		end
-		if not found then
-			local confirm = 0
-			for _ = 1, 3 do
-				task.wait(5)
-				local recheck = false
-				for _, alt in ipairs(getgenv().AltAccounts) do
-					if Players:FindFirstChild(alt) then recheck = true break end
-				end
-				if recheck then
-					warn("[WWHub] Alt found on recheck — staying")
-					return
-				end
-				confirm += 1
-			end
-			warn("[WWHub] Alt not found after recheck — hopping...")
-			pcall(function() game:GetService("TeleportService"):TeleportToRandomPlace(game.PlaceId) end)
-		else
-			warn("[WWHub] Alt found — staying")
+		return false
+	end
+	local function hopIfNeeded()
+		if checkAlts() then warn("[WWHub] Alt found — staying") return end
+		-- recheck 3 ครั้ง
+		for _ = 1, 3 do
+			task.wait(5)
+			if checkAlts() then warn("[WWHub] Alt found on recheck — staying") return end
 		end
+		warn("[WWHub] No alt — hopping...")
+		pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 	end
-	checkAlts()
-	while true do
-		task.wait(60 * 30)
-		if not getgenv().main then break end
-		checkAlts()
-	end
+	hopIfNeeded()
+	while true do task.wait(60*30) if IS_MAIN then hopIfNeeded() end end
 end)
 
--- ALT: ตรวจว่ามี main ในเซิฟ ถ้าไม่เจอใน 10 นาทีให้ hop
+-- ALT: ต้องมี main อยู่ในเซิฟ ถ้าไม่มีใน 5 นาทีให้ hop
 task.spawn(function()
-	if not getgenv().alt then return end
+	if not IS_ALT then return end
 	task.wait(5)
 	local function checkMain()
-		for _, name in ipairs(getgenv().MainAccounts) do
-			if Players:FindFirstChild(name) then return true end
+		for _, n in ipairs(_G.main) do
+			if Players:FindFirstChild(n) then return true end
 		end
 		return false
 	end
 	local found = false
-	for _ = 1, 60 do
+	for _ = 1, 30 do
 		if checkMain() then found = true break end
 		task.wait(10)
 	end
 	if not found then
-		warn("[WWHub] Main not found after 10min — hopping...")
-		pcall(function() game:GetService("TeleportService"):TeleportToRandomPlace(game.PlaceId) end)
+		warn("[WWHub] No main after 5min — hopping...")
+		pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 		return
 	end
 	while true do
 		task.wait(10)
-		if not getgenv().alt then break end
+		if not IS_ALT then break end
 		if not checkMain() then
-			warn("[WWHub] Main left server — waiting 10min before hop...")
-			local came_back = false
-			for _ = 1, 60 do
+			local back = false
+			for _ = 1, 30 do
 				task.wait(10)
-				if checkMain() then came_back = true break end
+				if checkMain() then back = true break end
 			end
-			if not came_back then
-				warn("[WWHub] Main still gone — hopping...")
-				pcall(function() game:GetService("TeleportService"):TeleportToRandomPlace(game.PlaceId) end)
+			if not back then
+				warn("[WWHub] Main gone 5min — hopping...")
+				pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 				break
-			else
-				warn("[WWHub] Main came back — staying")
 			end
 		end
 	end
 end)
 
-local altCFrame        = CFrame.new(20000, 2000, 20000)
-local pauseCFrame      = CFrame.new(156, 1, -43)
-local pauseCFrameAlt   = CFrame.new(36, 5, -13)
-local baseName         = "WWHub_BasePlate"
+-- ===== Shared vars =====
+local altCFrame      = CFrame.new(20000, 2000, 20000)
+local pauseCFrame    = CFrame.new(156, 1, -43)
+local pauseCFrameAlt = CFrame.new(36, 5, -13)
+local baseName       = "WWHub_BasePlate"
 
-local tpDistanceLimit      = 18
-local safeZoneLimit        = 8
-local tpWatchdogDelay      = 0.35
+local tpDistLimit  = 18
+local safeLimit    = 8
+local watchdogTime = 0.35
 
 local m1Hit = CFrame.new(
 	97.64178466796875, 497.5, -602.8313598632812,
@@ -110,96 +114,75 @@ local m1Hit = CFrame.new(
 	0.04566875472664833, -0.14892295002937317, 0.9877936840057373
 )
 
-local loopAlt          = false
-local loopMain         = false
-local jugResetting     = false
-local starting         = false
-local selectingTeam    = false
-local pointsCapped     = false
-local roundPaused      = false
+local loopAlt       = false
+local loopMain      = false
+local loopGuard     = false
+local starting      = false
+local selectingTeam = false
+local pointsCapped  = false
+local roundPaused   = false
 local roundPauseReason = nil
 local roundResetting   = false
-local handledChar      = nil
-local pressedKChar     = nil
-local timerTpDone      = false
-local gui              = nil
+local handledChar   = nil
+local pressedKChar  = nil
+local timerTpDone   = false
+local gui           = nil
 
 local pointCapLimit = 990000
 
+local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
+
 local _request
-if not pcall(function()
-	_request = request or http_request or http.request
-end) then
+if not pcall(function() _request = request or http_request or http.request end) then
 	_request = function() end
 end
 
-local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
-
-local cachedAvatarUrl = ""
+-- Avatar
+local avatarUrl = ""
 task.spawn(function()
 	pcall(function()
-		local apiUrl = string.format(
-			"https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=%d&size=420x420&format=Png&isCircular=false",
-			LP.UserId
-		)
-		local resp = HttpService:JSONDecode(game:HttpGet(apiUrl))
-		if resp and resp.data and resp.data[1] and resp.data[1].imageUrl then
-			cachedAvatarUrl = resp.data[1].imageUrl
-		else
-			cachedAvatarUrl = string.format(
-				"https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png",
-				LP.UserId
-			)
-		end
+		local url = string.format("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=%d&size=420x420&format=Png&isCircular=false", LP.UserId)
+		local r = Http:JSONDecode(game:HttpGet(url))
+		if r and r.data and r.data[1] then avatarUrl = r.data[1].imageUrl or "" end
 	end)
 end)
 
 local function sendWebhook(label)
 	task.spawn(function()
 		pcall(function()
-			local moneyText, lvlText, pts, altCount = "N/A", "N/A", "N/A", 0
+			local money, lvl, pts = "N/A", "N/A", "N/A"
+			local altCount = 0
 			pcall(function()
-				moneyText = tostring(LP:WaitForChild("ReplicatedStats"):WaitForChild("Gold").Value)
+				money = tostring(LP:WaitForChild("ReplicatedStats"):WaitForChild("Gold").Value)
 				local hud = LP.PlayerGui:FindFirstChild("HUD")
 				if hud then
-					local lvlObj = hud:FindFirstChild("RightBotCorner")
-						and hud.RightBotCorner:FindFirstChild("Line2")
-						and hud.RightBotCorner.Line2:FindFirstChild("Lvl")
-					if lvlObj then lvlText = lvlObj.Text end
+					local lo = hud:FindFirstChild("RightBotCorner") and hud.RightBotCorner:FindFirstChild("Line2") and hud.RightBotCorner.Line2:FindFirstChild("Lvl")
+					if lo then lvl = lo.Text end
 				end
 				pts = tostring(LP.leaderstats.Points.Value)
 			end)
-			for _, alt in ipairs(getgenv().AltAccounts) do
-				if Players:FindFirstChild(alt) then altCount += 1 end
-			end
 			local altNames = {}
-			for _, alt in ipairs(getgenv().AltAccounts) do
-				if Players:FindFirstChild(alt) then
-					table.insert(altNames, alt)
-				end
+			for _, n in ipairs(_G.alt) do
+				if Players:FindFirstChild(n) then altCount += 1 table.insert(altNames, n) end
 			end
-			local altList = #altNames > 0 and table.concat(altNames, "\n") or "None"
 			_request({
-				Url    = WebhookURL,
-				Method = "POST",
-				Headers = { ["Content-Type"] = "application/json" },
-				Body = HttpService:JSONEncode({
-					username   = "WW Hub",
-					avatar_url = cachedAvatarUrl,
+				Url = WebhookURL, Method = "POST",
+				Headers = {["Content-Type"] = "application/json"},
+				Body = Http:JSONEncode({
+					username = "WW Hub", avatar_url = avatarUrl,
 					embeds = {{
-						title  = "⚡ WWHub — " .. label,
-						color  = 0x46C864,
-						thumbnail = { url = cachedAvatarUrl },
+						title = "⚡ WWHub — " .. label, color = 0x46C864,
+						thumbnail = {url = avatarUrl},
 						fields = {
-							{ name = "👤 Player", value = LP.DisplayName .. " (@" .. LP.Name .. ")", inline = false },
-							{ name = "💰 Money",  value = moneyText, inline = true },
-							{ name = "⭐ Level",  value = lvlText,   inline = true },
-							{ name = "🎯 Points", value = pts,       inline = true },
-							{ name = "👥 Alts", value = altCount .. " / " .. #getgenv().AltAccounts, inline = true },
-							{ name = "📋 Alt Names", value = altList, inline = false },
+							{name="👤 Player", value=LP.DisplayName.." (@"..LP.Name..")", inline=false},
+							{name="💰 Money",  value=money, inline=true},
+							{name="⭐ Level",  value=lvl,   inline=true},
+							{name="🎯 Points", value=pts,   inline=true},
+							{name="👥 Alts",   value=altCount.."/"..#_G.alt, inline=true},
+							{name="📋 Alt List", value=#altNames>0 and table.concat(altNames,"\n") or "None", inline=false},
 						},
-						footer = { text = "WWHub • " .. os.date("%d/%m/%Y %H:%M:%S") },
-						timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+						footer={text="WWHub • "..os.date("%d/%m/%Y %H:%M:%S")},
+						timestamp=os.date("!%Y-%m-%dT%H:%M:%SZ")
 					}}
 				})
 			})
@@ -208,45 +191,60 @@ local function sendWebhook(label)
 end
 
 -- ===== Helpers =====
-local function getChar() return LP.Character end
-local function getHRP()
-	local c = getChar()
-	return c and c:FindFirstChild("HumanoidRootPart")
-end
+local function getChar()    return LP.Character end
+local function getHRP()     local c=getChar() return c and c:FindFirstChild("HumanoidRootPart") end
+local function getHum()     local c=getChar() return c and c:FindFirstChildOfClass("Humanoid") end
 local function getInput()
-	local bp = LP:FindFirstChild("Backpack")
-	local c  = getChar()
-	return (bp and bp:FindFirstChild("Input"))
-		or (c  and  c:FindFirstChild("Input"))
-		or LP:FindFirstChild("Input")
+	local bp=LP:FindFirstChild("Backpack") local c=getChar()
+	return (bp and bp:FindFirstChild("Input")) or (c and c:FindFirstChild("Input")) or LP:FindFirstChild("Input")
 end
 local function fireInput(action, data)
 	local inp = getInput()
 	if not inp then return end
-	pcall(function()
-		if data then inp:FireServer(action, data)
-		else inp:FireServer(action) end
-	end)
+	pcall(function() if data then inp:FireServer(action,data) else inp:FireServer(action) end end)
 end
 
-local function tpToUntilArrived(cf, limit, maxTries)
-	limit    = limit    or safeZoneLimit
-	maxTries = maxTries or 20
+local function isCharReady()
+	local c = getChar()
+	if not c or not c.Parent then return false end
+	local hrp = c:FindFirstChild("HumanoidRootPart")
+	local hum = c:FindFirstChildOfClass("Humanoid")
+	if not hrp or not hum then return false end
+	if hum.Health <= 0 then return false end
+	if hrp.Position.Y < -100 then return false end
+	return true
+end
+
+local function makeBase()
+	local b = workspace:FindFirstChild(baseName)
+	if not b then
+		b = Instance.new("Part")
+		b.Name = baseName b.Anchored = true
+		b.Color = Color3.fromRGB(35,35,35)
+		b.Material = Enum.Material.SmoothPlastic
+		b.Parent = workspace
+	end
+	b.Size = Vector3.new(500,0.4,500)
+	b.CFrame = CFrame.new(altCFrame.Position - Vector3.new(0,3,0))
+	b.Anchored = true
+end
+
+local function tpToUntilArrived(cf, limit, tries)
+	limit = limit or safeLimit
+	tries = tries or 20
 	task.spawn(function()
-		for _ = 1, maxTries do
+		for _ = 1, tries do
 			if not gui or not gui.Parent then break end
 			local hrp = getHRP()
 			if hrp then
 				pcall(function()
-					hrp.AssemblyLinearVelocity  = Vector3.new(0,0,0)
+					hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
 					hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
 					hrp.CFrame = cf
 				end)
 				task.wait(0.25)
 				hrp = getHRP()
-				if hrp and (hrp.Position - cf.Position).Magnitude <= limit then
-					break
-				end
+				if hrp and (hrp.Position - cf.Position).Magnitude <= limit then break end
 			end
 			task.wait(0.25)
 		end
@@ -254,120 +252,93 @@ local function tpToUntilArrived(cf, limit, maxTries)
 end
 
 local function tpToSafeZone()
-	local cf = loopAlt and pauseCFrameAlt or pauseCFrame
-	tpToUntilArrived(cf, safeZoneLimit, 20)
+	tpToUntilArrived(IS_ALT and pauseCFrameAlt or pauseCFrame, safeLimit, 20)
 end
 
-local function isNearCFrame(cf, limit)
+local function isNearCF(cf, limit)
 	local hrp = getHRP()
 	if not hrp or not cf then return false end
-	return (hrp.Position - cf.Position).Magnitude <= (limit or tpDistanceLimit)
+	return (hrp.Position - cf.Position).Magnitude <= (limit or tpDistLimit)
 end
-local function isNearFarm() return isNearCFrame(altCFrame, tpDistanceLimit) end
+local function isNearFarm() return isNearCF(altCFrame, tpDistLimit) end
 
-local function makeBase()
-	local base = workspace:FindFirstChild(baseName)
-	if not base then
-		base          = Instance.new("Part")
-		base.Name     = baseName
-		base.Anchored = true
-		base.Color    = Color3.fromRGB(35,35,35)
-		base.Material = Enum.Material.SmoothPlastic
-		base.Parent   = workspace
-	end
-	base.Size   = Vector3.new(500, 0.4, 500)
-	base.CFrame = CFrame.new(altCFrame.Position - Vector3.new(0, 3, 0))
-	base.Anchored = true
-end
-
-local function tpToCFrame(cf)
+local function tpToCF(cf)
 	if not cf then return false end
 	makeBase()
 	local hrp = getHRP()
 	if not hrp then return false end
 	pcall(function()
-		hrp.AssemblyLinearVelocity  = Vector3.new(0,0,0)
+		hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
 		hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
 		hrp.CFrame = cf
 	end)
 	return true
 end
 local function tpAndVerify(cf)
-	if not tpToCFrame(cf) then return false end
-	task.delay(tpWatchdogDelay, function()
+	if not tpToCF(cf) then return false end
+	task.delay(watchdogTime, function()
 		if gui and gui.Parent and not selectingTeam and (loopAlt or loopMain)
-			and not isNearCFrame(cf, tpDistanceLimit)
-			and not timerTpDone and not roundPaused then
-			tpToCFrame(cf)
+			and not isNearCF(cf, tpDistLimit) and not timerTpDone and not roundPaused then
+			tpToCF(cf)
 		end
 	end)
 	return true
 end
 
-local function getMainCFrame()
+local function getMainCF()
 	local p = altCFrame.Position
 	return CFrame.lookAt(p + Vector3.new(0,0,-1), p)
 end
-local function getFarmTargetCFrame()
+local function getFarmTarget()
 	if loopAlt  then return altCFrame end
-	if loopMain then return getMainCFrame() end
+	if loopMain then return getMainCF() end
 	return nil
 end
-local function tpAlt()  tpAndVerify(altCFrame) end
-local function tpMain() tpAndVerify(getMainCFrame()) end
 
--- ===== Input / Skills =====
+-- ===== Skills / Input =====
 local function fireM1()
-	fireInput("M1", {
-		air=false, skeyreal=false, skeydown=true,
-		mousehit=m1Hit, md=Vector3.new(0,0,0)
-	})
+	fireInput("M1",{air=false,skeyreal=false,skeydown=true,mousehit=m1Hit,md=Vector3.new(0,0,0)})
 end
 local function pressKey(key)
 	pcall(function()
-		VirtualInputManager:SendKeyEvent(true,  key, false, game)
+		VIM:SendKeyEvent(true, key, false, game)
 		task.wait(0.05)
-		VirtualInputManager:SendKeyEvent(false, key, false, game)
+		VIM:SendKeyEvent(false, key, false, game)
 	end)
 end
 local function fireSkills()
 	local inp = getInput()
 	if not inp then return end
 	pcall(function() inp:FireServer("UseMove",{air=false,running=false,neutral=true,range="1",ToolName="Getsuga Tensho",mousehit=m1Hit,camdir=vector.create(-0.83,-0.065,-0.55),campos=vector.create(3083.8,579.3,473.5)}) end)
-	pressKey(Enum.KeyCode.One)   task.wait(0.15)
+	pressKey(Enum.KeyCode.One) task.wait(0.15)
 	pcall(function() inp:FireServer("UseMove",{air=false,running=false,neutral=true,range="2",ToolName="Getsuga Slash",mousehit=m1Hit,camdir=vector.create(-0.82,-0.033,-0.57),campos=vector.create(3083.6,578.9,473.7)}) end)
-	pressKey(Enum.KeyCode.Two)   task.wait(0.15)
+	pressKey(Enum.KeyCode.Two) task.wait(0.15)
 	pcall(function() inp:FireServer("UseMove",{air=false,running=false,neutral=true,range="3",ToolName="Multi-Cut",mousehit=m1Hit,camdir=vector.create(-0.91,-0.095,-0.39),campos=vector.create(3047.1,579.7,438.5)}) end)
 	pressKey(Enum.KeyCode.Three) task.wait(0.15)
 	pcall(function() inp:FireServer("UseMove",{air=false,running=false,neutral=true,range="4",ToolName="Lunge",mousehit=m1Hit,camdir=vector.create(-0.75,-0.018,-0.65),campos=vector.create(3047.1,578.7,444.8)}) end)
-	pressKey(Enum.KeyCode.Four)  task.wait(0.15)
+	pressKey(Enum.KeyCode.Four) task.wait(0.15)
 	pcall(function() inp:FireServer("UseMode") end)
 end
-local function forceFieldOff() fireInput("ForceFieldOff") end
-local function pressK()
-	pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.K, false, game) end)
+local function pressG()
+	pcall(function()
+		VIM:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+		task.wait(0.03)
+		VIM:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+	end)
 end
+local function pressK()
+	pcall(function() VIM:SendKeyEvent(true, Enum.KeyCode.K, false, game) end)
+end
+local function forceFieldOff() fireInput("ForceFieldOff") end
 
-task.spawn(function()
-	while gui and gui.Parent do
-		if loopMain and not roundPaused and not timerTpDone and not starting then
-			pcall(function()
-				VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.G, false, game)
-				task.wait(0.03)
-				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
-			end)
-		end
-		task.wait(0.05)
-	end
-end)
-
+-- Anti-AFK
 pcall(function()
 	LP.Idled:Connect(function()
 		pcall(function()
-			VirtualUser:CaptureController()
-			VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+			VUser:CaptureController()
+			VUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 			task.wait(0.1)
-			VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+			VUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 		end)
 	end)
 end)
@@ -375,15 +346,12 @@ end)
 -- ===== Character =====
 local function fireRespawnDone()
 	local pg = LP:WaitForChild("PlayerGui")
-	local r  = pg:FindFirstChild("Respawning")
-	if r and r:FindFirstChild("Done") then
-		pcall(function() r.Done:FireServer() end)
-	end
+	local r = pg:FindFirstChild("Respawning")
+	if r and r:FindFirstChild("Done") then pcall(function() r.Done:FireServer() end) end
 end
-local function afterCharacterLoaded(char)
+local function afterCharLoaded(char)
 	if not char or handledChar == char then return end
-	handledChar  = char
-	pressedKChar = nil
+	handledChar = char pressedKChar = nil
 	char:WaitForChild("HumanoidRootPart", 10)
 	char:WaitForChild("Humanoid", 10)
 	task.wait(1)
@@ -391,24 +359,44 @@ local function afterCharacterLoaded(char)
 	task.wait(0.2)
 	forceFieldOff()
 end
-local function resetCharacter()
-	local char = getChar()
-	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then hum.Health = 0 end
-	end
+local function resetChar()
+	local c = getChar()
+	if c then local h = c:FindFirstChildOfClass("Humanoid") if h then h.Health = 0 end end
 	pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Loaded"):FireServer() end)
 	task.wait(1)
 	local nc = getChar()
-	if nc then afterCharacterLoaded(nc) end
+	if nc then afterCharLoaded(nc) end
 end
 local function pressKAfterTP()
-	local char = LP.Character
-	if not char or pressedKChar == char or not isNearFarm() then return end
-	pressedKChar = char
+	local c = LP.Character
+	if not c or pressedKChar == c or not isNearFarm() then return end
+	pressedKChar = c
 	task.wait(0.35)
 	if isNearFarm() then pressK() end
 end
+
+-- ===== Alt HP Reset =====
+task.spawn(function()
+	while gui and gui.Parent do
+		if loopAlt and not roundPaused and not timerTpDone and not starting then
+			if isCharReady() then
+				local hum = getHum()
+				if hum and hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) < 0.9 then
+					warn("[WWHub] Alt HP < 90% — resetting")
+					pcall(function() hum.Health = 0 end)
+					task.wait(1.5)
+					local waited = 0
+					repeat task.wait(0.5) waited += 0.5 until isCharReady() or waited > 10
+					local nc = getChar()
+					if nc then afterCharLoaded(nc) end
+					task.wait(0.5)
+					if loopAlt and not roundPaused then tpAndVerify(altCFrame) end
+				end
+			end
+		end
+		task.wait(0.3)
+	end
+end)
 
 -- ===== Team =====
 local function getTeamPad()
@@ -435,25 +423,22 @@ end
 
 -- ===== Stats =====
 local function getPoints()
-	local ok, v = pcall(function() return LP.leaderstats.Points.Value end)
+	local ok,v = pcall(function() return LP.leaderstats.Points.Value end)
 	return ok and v or 0
 end
 local function getTimerValue()
-	local ok, v = pcall(function()
+	local ok,v = pcall(function()
 		local hud = LP.PlayerGui:FindFirstChild("HUD")
 		if not hud then return 0 end
 		local t = hud:FindFirstChild("Timer")
 		if not t then return 0 end
-		if t:IsA("TextLabel") or t:IsA("TextBox") then
-			return tonumber(t.Text) or 0
-		else
-			return tonumber(t.Value) or 0
-		end
+		if t:IsA("TextLabel") or t:IsA("TextBox") then return tonumber(t.Text) or 0
+		else return tonumber(t.Value) or 0 end
 	end)
 	return ok and v or 0
 end
 local function getLives()
-	local ok, v = pcall(function()
+	local ok,v = pcall(function()
 		local hud = LP.PlayerGui:FindFirstChild("HUD")
 		if not hud then return 0 end
 		local sc = hud:FindFirstChild("StockCount")
@@ -462,22 +447,37 @@ local function getLives()
 	end)
 	return ok and v or 0
 end
+local function getLevel()
+	local ok,v = pcall(function()
+		local hud = LP.PlayerGui:FindFirstChild("HUD")
+		if not hud then return "?" end
+		local lo = hud:FindFirstChild("RightBotCorner") and hud.RightBotCorner:FindFirstChild("Line2") and hud.RightBotCorner.Line2:FindFirstChild("Lvl")
+		if lo then return tostring(tonumber(lo.Text:match("%d+")) or "?") end
+		return "?"
+	end)
+	return ok and v or "?"
+end
+local function countAlts()
+	local n = 0
+	for _, name in ipairs(_G.alt) do if Players:FindFirstChild(name) then n += 1 end end
+	return n
+end
 
 -- ===== Blocked Mode =====
-local function getBlockedFarmMode()
+local function getBlockedMode()
 	local pg = LP:FindFirstChild("PlayerGui")
 	if not pg then return nil end
 	local lb = pg:FindFirstChild("CustomLeaderboard")
 	if not lb then return nil end
 	local m = lb:FindFirstChild("Main") or lb
-	if m:FindFirstChild("Juggernaut", true) then return "Juggernaut" end
-	if m:FindFirstChild("Lives",      true) then return "Lives"      end
+	if m:FindFirstChild("Juggernaut",true) then return "Juggernaut" end
+	if m:FindFirstChild("Lives",true)      then return "Lives"      end
 	for _, obj in ipairs(m:GetDescendants()) do
-		local nm = string.lower(obj.Name or "")
+		local nm = (obj.Name or ""):lower()
 		if nm:find("juggernaut") then return "Juggernaut" end
 		if nm:find("lives")      then return "Lives"      end
 		if obj:IsA("TextLabel") or obj:IsA("TextBox") or obj:IsA("TextButton") then
-			local tx = string.lower(obj.Text or "")
+			local tx = (obj.Text or ""):lower()
 			if tx:find("juggernaut") then return "Juggernaut" end
 			if tx:find("lives")      then return "Lives"      end
 		end
@@ -486,28 +486,22 @@ local function getBlockedFarmMode()
 end
 
 local function drainLives()
-	print("[WWHub] Draining lives until round ends...")
 	while gui and gui.Parent and (loopMain or loopAlt) do
-		if not getBlockedFarmMode() then break end
-		local char = getChar()
-		if char then
-			local hum = char:FindFirstChildOfClass("Humanoid")
-			if hum and hum.Health > 0 then hum.Health = 0 end
-		end
+		if not getBlockedMode() then break end
+		local c = getChar()
+		if c then local h = c:FindFirstChildOfClass("Humanoid") if h and h.Health>0 then h.Health=0 end end
 		task.wait(2)
 		local nc = getChar()
-		if nc then afterCharacterLoaded(nc) end
+		if nc then afterCharLoaded(nc) end
 		task.wait(0.5)
-		print("[WWHub] Lives left: " .. getLives())
 	end
-	print("[WWHub] Round ended — resuming farm")
 end
 
-local function pauseFarmForRound(reason)
+local function pauseFarm(reason)
 	if roundPaused then return end
-	roundPaused      = true
-	roundPauseReason = reason or "Blocked Mode"
-	pointsCapped     = false
+	roundPaused = true
+	roundPauseReason = reason or "Blocked"
+	pointsCapped = false
 	sendWebhook("Farm Paused — " .. roundPauseReason)
 	if roundResetting then return end
 	roundResetting = true
@@ -516,21 +510,12 @@ local function pauseFarmForRound(reason)
 		tpToSafeZone()
 		local clear = 0
 		while gui and gui.Parent and (loopMain or loopAlt) and roundPaused do
-			local bm = getBlockedFarmMode()
-			if bm then
-				clear = 0
-				tpToSafeZone()
-				task.wait(1)
-			else
-				clear += 1
-				if clear >= 3 then break end
-				task.wait(1)
-			end
+			local bm = getBlockedMode()
+			if bm then clear=0 tpToSafeZone() task.wait(1)
+			else clear+=1 if clear>=3 then break end task.wait(1) end
 		end
-		local last = roundPauseReason or "Blocked Mode"
-		roundPaused      = false
-		roundPauseReason = nil
-		roundResetting   = false
+		local last = roundPauseReason
+		roundPaused=false roundPauseReason=nil roundResetting=false
 		if gui and gui.Parent and (loopMain or loopAlt) then
 			sendWebhook("Farm Resumed — " .. last)
 		end
@@ -542,34 +527,22 @@ task.spawn(function()
 	while true do
 		task.wait(0.3)
 		if loopMain or loopAlt then
-			local pts   = getPoints()
+			local pts = getPoints()
 			local timer = getTimerValue()
-
 			if loopMain then
-				if not pointsCapped and pts >= pointCapLimit then
-					pointsCapped = true
-				end
-				if pointsCapped and timer > 30 and pts < pointCapLimit then
-					pointsCapped = false
-				end
+				if not pointsCapped and pts >= pointCapLimit then pointsCapped = true end
+				if pointsCapped and timer > 30 and pts < pointCapLimit then pointsCapped = false end
 			end
-
 			if timer > 0 and timer <= 2 and not timerTpDone and not roundPaused then
 				timerTpDone = true
 				tpToSafeZone()
 			end
-
 			if timerTpDone then
-				local padExists = workspace:FindFirstChild("Red Team")
-					or workspace:FindFirstChild("Blue Team")
-					or workspace:FindFirstChild("Green Team")
-				if timer > 30 or padExists then
-					timerTpDone = false
-				end
+				local pad = workspace:FindFirstChild("Red Team") or workspace:FindFirstChild("Blue Team") or workspace:FindFirstChild("Green Team")
+				if timer > 30 or pad then timerTpDone = false end
 			end
 		else
-			pointsCapped  = false
-			timerTpDone   = false
+			pointsCapped = false timerTpDone = false
 		end
 	end
 end)
@@ -579,298 +552,343 @@ local startFarm
 startFarm = function(mode)
 	if starting then return end
 	starting = true
-	loopAlt  = false
-	loopMain = false
+	loopAlt=false loopMain=false loopGuard=false
 	makeBase()
-	local function selectIchigoPlay()
-		fireInput("CharacterButton", "Ichigo")
+	local function selectChar()
+		if mode == "alt" then fireInput("CharacterButton","Random")
+		else fireInput("CharacterButton","Ichigo") end
 		task.wait(0.2)
 		fireInput("ClickPlay")
 	end
-	selectIchigoPlay()
-	task.wait(2.5)
-	resetCharacter()
-	task.wait(2.5)
-	selectIchigoPlay()
-	task.wait(2.5)
-	roundPaused      = false
-	roundPauseReason = nil
-	roundResetting   = false
-	timerTpDone      = false
-	pointsCapped     = false
-	if mode == "alt" then loopAlt  = true
-	else                  loopMain = true end
-	if mode == "main" then sendWebhook("Main Farm Started") end
+	selectChar() task.wait(2.5)
+	resetChar()  task.wait(2.5)
+	selectChar() task.wait(2.5)
+	roundPaused=false roundPauseReason=nil roundResetting=false
+	timerTpDone=false pointsCapped=false
+	if mode=="alt"   then loopAlt   = true
+	elseif mode=="main"  then loopMain  = true
+	elseif mode=="guard" then loopGuard = true end
+	if mode=="main" then sendWebhook("Main Farm Started") end
 	starting = false
 end
 
+-- ===== GUARD Logic =====
+-- ฟังก์ชันดึงรายชื่อ target (ทุกคนในเซิฟยกเว้น alt/main/guard/ตัวเอง)
+local function getTargets()
+	local skip = {}
+	for _, n in ipairs(_G.main)  do skip[n] = true end
+	for _, n in ipairs(_G.alt)   do skip[n] = true end
+	for _, n in ipairs(_G.guard) do skip[n] = true end
+	skip[myName] = true
+	local targets = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if not skip[p.Name] and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			table.insert(targets, p)
+		end
+	end
+	return targets
+end
+
+-- Guard loop: วน TP ไปหลัง target ทีละคน แล้ว m1/skill/G ทุก 5 วิ
+task.spawn(function()
+	while gui and gui.Parent do
+		if not loopGuard then task.wait(1) continue end
+		local targets = getTargets()
+		if #targets == 0 then task.wait(2) continue end
+		for _, target in ipairs(targets) do
+			if not loopGuard or not gui or not gui.Parent then break end
+			local tChar = target.Character
+			if not tChar then continue end
+			local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+			if not tHRP then continue end
+			-- TP ไปด้านหลัง target
+			local hrp = getHRP()
+			if not hrp then continue end
+			local behindCF = tHRP.CFrame * CFrame.new(0, 0, 3) -- 3 studs หลัง
+			pcall(function()
+				hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+				hrp.CFrame = behindCF
+			end)
+			task.wait(0.2)
+			-- โจมตี 5 วิ
+			local attackEnd = tick() + 5
+			while tick() < attackEnd and loopGuard do
+				fireM1()
+				task.wait(0.12)
+				pressG()
+				task.wait(0.05)
+				-- TP ติดตาม target อยู่เรื่อยๆ
+				tHRP = tChar:FindFirstChild("HumanoidRootPart")
+				if tHRP then
+					hrp = getHRP()
+					if hrp then
+						behindCF = tHRP.CFrame * CFrame.new(0, 0, 3)
+						pcall(function()
+							hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+							hrp.CFrame = behindCF
+						end)
+					end
+				else
+					break -- target ตายแล้ว
+				end
+			end
+			-- skill หลังจบ 5 วิ
+			if loopGuard then fireSkills() end
+			task.wait(0.5)
+		end
+	end
+end)
+
+-- G spam สำหรับ main
+task.spawn(function()
+	while gui and gui.Parent do
+		if loopMain and not roundPaused and not timerTpDone and not starting then
+			pressG()
+		end
+		task.wait(0.05)
+	end
+end)
+
 -- ===== GUI =====
 gui = Instance.new("ScreenGui")
-gui.Name          = "WWHub_GUI_v4"
-gui.ResetOnSpawn  = false
+gui.Name = "WWHub_GUI_v5"
+gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent        = game.CoreGui
+gui.DisplayOrder = 0
+gui.Parent = game.CoreGui
 
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size             = UDim2.new(0, 42, 0, 42)
-toggleBtn.Position         = UDim2.new(0, 10, 0.5, -21)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-toggleBtn.Text             = "⚡"
-toggleBtn.TextSize         = 20
-toggleBtn.TextColor3       = Color3.fromRGB(150, 70, 255)
-toggleBtn.Font             = Enum.Font.GothamBold
-toggleBtn.ZIndex           = 10
-toggleBtn.Parent           = gui
-Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
-local ts = Instance.new("UIStroke", toggleBtn)
-ts.Color = Color3.fromRGB(110, 40, 200); ts.Thickness = 2
+toggleBtn.Size = UDim2.new(0,42,0,42)
+toggleBtn.Position = UDim2.new(0,10,0.5,-21)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(18,18,28)
+toggleBtn.Text = "⚡" toggleBtn.TextSize = 20
+toggleBtn.TextColor3 = Color3.fromRGB(150,70,255)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.ZIndex = 10 toggleBtn.Parent = gui
+Instance.new("UICorner",toggleBtn).CornerRadius = UDim.new(0,10)
+local ts = Instance.new("UIStroke",toggleBtn)
+ts.Color = Color3.fromRGB(110,40,200) ts.Thickness = 2
 
 local panel = Instance.new("Frame")
-panel.Size             = UDim2.new(0, 280, 0, 320)
-panel.Position         = UDim2.new(0.5, -140, 0.5, -160)
-panel.BackgroundColor3 = Color3.fromRGB(14, 14, 22)
-panel.BorderSizePixel  = 0
-panel.Active           = true
-panel.Parent           = gui
-Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 14)
-local ps = Instance.new("UIStroke", panel)
-ps.Color = Color3.fromRGB(100, 35, 190); ps.Thickness = 2
+panel.Size = UDim2.new(0,280,0,340)
+panel.Position = UDim2.new(0.5,-140,0.5,-170)
+panel.BackgroundColor3 = Color3.fromRGB(14,14,22)
+panel.BorderSizePixel = 0 panel.Active = true panel.Parent = gui
+Instance.new("UICorner",panel).CornerRadius = UDim.new(0,14)
+local ps = Instance.new("UIStroke",panel)
+ps.Color = Color3.fromRGB(100,35,190) ps.Thickness = 2
 
-local dragging, dragStart, startPos
+local dragging,dragStart,dragPos
 panel.InputBegan:Connect(function(inp)
-	if inp.UserInputType == Enum.UserInputType.MouseButton1
-	or inp.UserInputType == Enum.UserInputType.Touch then
-		dragging = true; dragStart = inp.Position; startPos = panel.Position
+	if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+		dragging=true dragStart=inp.Position dragPos=panel.Position
 	end
 end)
 panel.InputEnded:Connect(function(inp)
-	if inp.UserInputType == Enum.UserInputType.MouseButton1
-	or inp.UserInputType == Enum.UserInputType.Touch then
-		dragging = false
+	if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+		dragging=false
 	end
 end)
 if UIS then
 	UIS.InputChanged:Connect(function(inp)
-		if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
-		or inp.UserInputType == Enum.UserInputType.Touch) then
-			local d = inp.Position - dragStart
-			panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
-			                           startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		if dragging and (inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch) then
+			local d=inp.Position-dragStart
+			panel.Position=UDim2.new(dragPos.X.Scale,dragPos.X.Offset+d.X,dragPos.Y.Scale,dragPos.Y.Offset+d.Y)
 		end
 	end)
 end
 
 local header = Instance.new("Frame")
-header.Size             = UDim2.new(1, 0, 0, 48)
-header.BackgroundColor3 = Color3.fromRGB(20, 20, 32)
-header.BorderSizePixel  = 0
-header.Parent           = panel
-Instance.new("UICorner", header).CornerRadius = UDim.new(0, 14)
+header.Size = UDim2.new(1,0,0,48)
+header.BackgroundColor3 = Color3.fromRGB(20,20,32)
+header.BorderSizePixel = 0 header.Parent = panel
+Instance.new("UICorner",header).CornerRadius = UDim.new(0,14)
+
+-- Role badge
+local roleBadge = Instance.new("TextLabel")
+roleBadge.Size = UDim2.new(0,60,0,22)
+roleBadge.Position = UDim2.new(0,12,0,4)
+roleBadge.BackgroundColor3 = IS_MAIN and Color3.fromRGB(40,190,100) or IS_ALT and Color3.fromRGB(50,110,240) or IS_GUARD and Color3.fromRGB(220,80,80) or Color3.fromRGB(60,60,80)
+roleBadge.Text = IS_MAIN and "MAIN" or IS_ALT and "ALT" or IS_GUARD and "GUARD" or "???"
+roleBadge.TextColor3 = Color3.fromRGB(255,255,255)
+roleBadge.TextSize = 12 roleBadge.Font = Enum.Font.GothamBold
+roleBadge.Parent = header
+Instance.new("UICorner",roleBadge).CornerRadius = UDim.new(0,6)
 
 local titleLbl = Instance.new("TextLabel")
-titleLbl.Size               = UDim2.new(1, -50, 1, 0)
-titleLbl.Position           = UDim2.new(0, 12, 0, 0)
+titleLbl.Size = UDim2.new(1,-50,0,20)
+titleLbl.Position = UDim2.new(0,80,0,4)
 titleLbl.BackgroundTransparency = 1
-titleLbl.Text               = "⚡ WW Hub v4"
-titleLbl.TextColor3         = Color3.fromRGB(155, 80, 255)
-titleLbl.TextSize           = 19
-titleLbl.Font               = Enum.Font.GothamBold
-titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
-titleLbl.Parent             = header
+titleLbl.Text = "⚡ WW Hub v5"
+titleLbl.TextColor3 = Color3.fromRGB(155,80,255)
+titleLbl.TextSize = 17 titleLbl.Font = Enum.Font.GothamBold
+titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+titleLbl.Parent = header
+
+local playerLbl = Instance.new("TextLabel")
+playerLbl.Size = UDim2.new(1,-10,0,16)
+playerLbl.Position = UDim2.new(0,12,0,26)
+playerLbl.BackgroundTransparency = 1
+playerLbl.Text = "👤 " .. LP.Name
+playerLbl.TextColor3 = Color3.fromRGB(160,160,180)
+playerLbl.TextSize = 12 playerLbl.Font = Enum.Font.Gotham
+playerLbl.TextXAlignment = Enum.TextXAlignment.Left
+playerLbl.Parent = header
 
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size             = UDim2.new(0, 32, 0, 32)
-closeBtn.Position         = UDim2.new(1, -40, 0, 8)
-closeBtn.BackgroundColor3 = Color3.fromRGB(190, 35, 55)
-closeBtn.Text             = "✕"
-closeBtn.TextColor3       = Color3.fromRGB(255,255,255)
-closeBtn.TextSize         = 15
-closeBtn.Font             = Enum.Font.GothamBold
-closeBtn.Parent           = header
-Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+closeBtn.Size = UDim2.new(0,32,0,32)
+closeBtn.Position = UDim2.new(1,-40,0,8)
+closeBtn.BackgroundColor3 = Color3.fromRGB(190,35,55)
+closeBtn.Text = "✕" closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+closeBtn.TextSize = 15 closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = header
+Instance.new("UICorner",closeBtn).CornerRadius = UDim.new(0,8)
 
 local statusLbl = Instance.new("TextLabel")
-statusLbl.Size               = UDim2.new(1, -20, 0, 20)
-statusLbl.Position           = UDim2.new(0, 10, 0, 54)
+statusLbl.Size = UDim2.new(1,-20,0,20)
+statusLbl.Position = UDim2.new(0,10,0,54)
 statusLbl.BackgroundTransparency = 1
-statusLbl.Text               = "📊 Idle"
-statusLbl.TextColor3         = Color3.fromRGB(140,140,165)
-statusLbl.TextSize           = 13
-statusLbl.Font               = Enum.Font.Gotham
-statusLbl.TextXAlignment     = Enum.TextXAlignment.Left
-statusLbl.Parent             = panel
+statusLbl.Text = "📊 Idle"
+statusLbl.TextColor3 = Color3.fromRGB(140,140,165)
+statusLbl.TextSize = 12 statusLbl.Font = Enum.Font.Gotham
+statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+statusLbl.Parent = panel
 
 local div = Instance.new("Frame")
-div.Size             = UDim2.new(1, -20, 0, 1)
-div.Position         = UDim2.new(0, 10, 0, 78)
-div.BackgroundColor3 = Color3.fromRGB(60, 35, 110)
-div.BorderSizePixel  = 0
-div.Parent           = panel
+div.Size = UDim2.new(1,-20,0,1)
+div.Position = UDim2.new(0,10,0,78)
+div.BackgroundColor3 = Color3.fromRGB(60,35,110)
+div.BorderSizePixel = 0 div.Parent = panel
 
-local function mkBtn(txt, col, yPos, w, xOff)
+local function mkBtn(txt,col,y,w,xOff)
 	local b = Instance.new("TextButton")
-	b.Size             = UDim2.new(w or 1, -20, 0, 52)
-	b.Position         = UDim2.new(0, xOff or 10, 0, yPos)
-	b.BackgroundColor3 = col
-	b.Text             = txt
-	b.TextColor3       = Color3.fromRGB(255,255,255)
-	b.TextSize         = 20
-	b.Font             = Enum.Font.GothamBold
-	b.Parent           = panel
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
+	b.Size = UDim2.new(w or 1,-20,0,48)
+	b.Position = UDim2.new(0,xOff or 10,0,y)
+	b.BackgroundColor3 = col b.Text = txt
+	b.TextColor3 = Color3.fromRGB(255,255,255)
+	b.TextSize = 18 b.Font = Enum.Font.GothamBold
+	b.Parent = panel
+	Instance.new("UICorner",b).CornerRadius = UDim.new(0,10)
 	return b
 end
 
-local altBtn  = mkBtn("💀 ALT",  Color3.fromRGB(50,110,240), 88, 0.47, 10)
-local mainBtn = mkBtn("🎮 MAIN", Color3.fromRGB(50,185,90),  88, 0.47, nil)
-mainBtn.Position = UDim2.new(0.53, -8, 0, 88)
-local stopBtn = mkBtn("⏹ STOP", Color3.fromRGB(190,50,50), 150, 1, 10)
+local altBtn   = mkBtn("💀 ALT",   Color3.fromRGB(50,110,240), 88, 0.47, 10)
+local mainBtn  = mkBtn("🎮 MAIN",  Color3.fromRGB(50,185,90),  88, 0.47, nil)
+mainBtn.Position = UDim2.new(0.53,-8,0,88)
+local guardBtn = mkBtn("🛡 GUARD", Color3.fromRGB(200,70,70),  144, 1, 10)
+local stopBtn  = mkBtn("⏹ STOP",  Color3.fromRGB(80,80,100),  200, 1, 10)
 
 local capLbl = Instance.new("TextLabel")
-capLbl.Size               = UDim2.new(1,-20,0,20)
-capLbl.Position           = UDim2.new(0,10,0,212)
+capLbl.Size = UDim2.new(1,-20,0,18)
+capLbl.Position = UDim2.new(0,10,0,256)
 capLbl.BackgroundTransparency = 1
-capLbl.Text               = "🎯 Point Cap: " .. pointCapLimit
-capLbl.TextColor3         = Color3.fromRGB(255,200,60)
-capLbl.TextSize           = 13
-capLbl.Font               = Enum.Font.GothamBold
-capLbl.TextXAlignment     = Enum.TextXAlignment.Left
-capLbl.Parent             = panel
+capLbl.Text = "🎯 Cap: " .. pointCapLimit
+capLbl.TextColor3 = Color3.fromRGB(255,200,60)
+capLbl.TextSize = 12 capLbl.Font = Enum.Font.GothamBold
+capLbl.TextXAlignment = Enum.TextXAlignment.Left
+capLbl.Parent = panel
 
-local function mkSmallBtn(txt, xOff)
+local function mkSBtn(txt,xOff)
 	local b = Instance.new("TextButton")
-	b.Size             = UDim2.new(0,36,0,28)
-	b.Position         = UDim2.new(1, xOff, 0, 208)
+	b.Size = UDim2.new(0,34,0,26)
+	b.Position = UDim2.new(1,xOff,0,252)
 	b.BackgroundColor3 = Color3.fromRGB(40,40,55)
-	b.Text             = txt
-	b.TextColor3       = Color3.fromRGB(255,255,255)
-	b.TextSize         = 18
-	b.Font             = Enum.Font.GothamBold
-	b.Parent           = panel
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0,7)
+	b.Text = txt b.TextColor3 = Color3.fromRGB(255,255,255)
+	b.TextSize = 16 b.Font = Enum.Font.GothamBold
+	b.Parent = panel
+	Instance.new("UICorner",b).CornerRadius = UDim.new(0,7)
 	return b
 end
-local capMinus = mkSmallBtn("−", -90)
-local capPlus  = mkSmallBtn("+", -50)
+local capMinus = mkSBtn("−",-86)
+local capPlus  = mkSBtn("+", -48)
 
 local renderEnabled = true
-local renderBtn = mkBtn("👁 Render: ON", Color3.fromRGB(0,120,210), 248, 1, 10)
-renderBtn.TextSize = 15
+local renderBtn = mkBtn("👁 Render: ON", Color3.fromRGB(0,120,210), 286, 1, 10)
+renderBtn.TextSize = 14
 
 local destroyBtn = Instance.new("TextButton")
-destroyBtn.Size             = UDim2.new(1,-20,0,30)
-destroyBtn.Position         = UDim2.new(0,10,1,-38)
+destroyBtn.Size = UDim2.new(1,-20,0,26)
+destroyBtn.Position = UDim2.new(0,10,1,-34)
 destroyBtn.BackgroundColor3 = Color3.fromRGB(35,35,50)
-destroyBtn.Text             = "❌ Destroy GUI"
-destroyBtn.TextColor3       = Color3.fromRGB(200,200,220)
-destroyBtn.TextSize         = 13
-destroyBtn.Font             = Enum.Font.GothamBold
-destroyBtn.Parent           = panel
-Instance.new("UICorner", destroyBtn).CornerRadius = UDim.new(0,8)
+destroyBtn.Text = "❌ Destroy GUI"
+destroyBtn.TextColor3 = Color3.fromRGB(200,200,220)
+destroyBtn.TextSize = 12 destroyBtn.Font = Enum.Font.GothamBold
+destroyBtn.Parent = panel
+Instance.new("UICorner",destroyBtn).CornerRadius = UDim.new(0,8)
 
 local function setStatus(txt) statusLbl.Text = "📊 " .. txt end
 
-toggleBtn.MouseButton1Click:Connect(function()
-	panel.Visible = not panel.Visible
-end)
+toggleBtn.MouseButton1Click:Connect(function() panel.Visible = not panel.Visible end)
 altBtn.MouseButton1Click:Connect(function()
-	setStatus("Starting ALT...")
 	task.spawn(function() startFarm("alt") end)
-	altBtn.BackgroundColor3  = Color3.fromRGB(40,190,100); altBtn.Text  = "⏸ ALT"
-	mainBtn.BackgroundColor3 = Color3.fromRGB(50,185,90);  mainBtn.Text = "🎮 MAIN"
+	altBtn.BackgroundColor3 = Color3.fromRGB(40,190,100) altBtn.Text = "⏸ ALT"
+	mainBtn.BackgroundColor3 = Color3.fromRGB(50,185,90) mainBtn.Text = "🎮 MAIN"
+	guardBtn.BackgroundColor3 = Color3.fromRGB(200,70,70) guardBtn.Text = "🛡 GUARD"
 end)
 mainBtn.MouseButton1Click:Connect(function()
-	setStatus("Starting MAIN...")
 	task.spawn(function() startFarm("main") end)
-	mainBtn.BackgroundColor3 = Color3.fromRGB(40,190,100); mainBtn.Text = "⏸ MAIN"
-	altBtn.BackgroundColor3  = Color3.fromRGB(50,110,240); altBtn.Text  = "💀 ALT"
+	mainBtn.BackgroundColor3 = Color3.fromRGB(40,190,100) mainBtn.Text = "⏸ MAIN"
+	altBtn.BackgroundColor3 = Color3.fromRGB(50,110,240) altBtn.Text = "💀 ALT"
+	guardBtn.BackgroundColor3 = Color3.fromRGB(200,70,70) guardBtn.Text = "🛡 GUARD"
+end)
+guardBtn.MouseButton1Click:Connect(function()
+	task.spawn(function() startFarm("guard") end)
+	guardBtn.BackgroundColor3 = Color3.fromRGB(240,80,80) guardBtn.Text = "⏸ GUARD"
+	altBtn.BackgroundColor3 = Color3.fromRGB(50,110,240) altBtn.Text = "💀 ALT"
+	mainBtn.BackgroundColor3 = Color3.fromRGB(50,185,90) mainBtn.Text = "🎮 MAIN"
 end)
 stopBtn.MouseButton1Click:Connect(function()
-	loopAlt = false; loopMain = false
-	altBtn.BackgroundColor3  = Color3.fromRGB(50,110,240); altBtn.Text  = "💀 ALT"
-	mainBtn.BackgroundColor3 = Color3.fromRGB(50,185,90);  mainBtn.Text = "🎮 MAIN"
+	loopAlt=false loopMain=false loopGuard=false
+	altBtn.BackgroundColor3 = Color3.fromRGB(50,110,240) altBtn.Text = "💀 ALT"
+	mainBtn.BackgroundColor3 = Color3.fromRGB(50,185,90) mainBtn.Text = "🎮 MAIN"
+	guardBtn.BackgroundColor3 = Color3.fromRGB(200,70,70) guardBtn.Text = "🛡 GUARD"
 	setStatus("Idle")
 end)
 capMinus.MouseButton1Click:Connect(function()
-	pointCapLimit = math.max(10000, pointCapLimit - 10000)
-	capLbl.Text = "🎯 Point Cap: " .. pointCapLimit
+	pointCapLimit = math.max(10000, pointCapLimit-10000)
+	capLbl.Text = "🎯 Cap: " .. pointCapLimit
 end)
 capPlus.MouseButton1Click:Connect(function()
 	pointCapLimit = pointCapLimit + 10000
-	capLbl.Text = "🎯 Point Cap: " .. pointCapLimit
+	capLbl.Text = "🎯 Cap: " .. pointCapLimit
 end)
 renderBtn.MouseButton1Click:Connect(function()
 	renderEnabled = not renderEnabled
 	game:GetService("RunService"):Set3dRenderingEnabled(renderEnabled)
-	renderBtn.Text             = renderEnabled and "👁 Render: ON" or "👁 Render: OFF"
+	renderBtn.Text = renderEnabled and "👁 Render: ON" or "👁 Render: OFF"
 	renderBtn.BackgroundColor3 = renderEnabled and Color3.fromRGB(0,120,210) or Color3.fromRGB(170,35,35)
 end)
-closeBtn.MouseButton1Click:Connect(function()
-	panel.Visible = false
-end)
+closeBtn.MouseButton1Click:Connect(function() panel.Visible = false end)
 destroyBtn.MouseButton1Click:Connect(function()
-	loopAlt = false; loopMain = false
+	loopAlt=false loopMain=false loopGuard=false
 	gui:Destroy()
 end)
 
+-- Auto-start ตาม role
 task.spawn(function()
 	task.wait(0.5)
-	if getgenv().main then
+	if IS_MAIN then
 		task.spawn(function() startFarm("main") end)
-		mainBtn.BackgroundColor3 = Color3.fromRGB(40,190,100); mainBtn.Text = "⏸ MAIN"
-	elseif getgenv().alt then
+		mainBtn.BackgroundColor3 = Color3.fromRGB(40,190,100) mainBtn.Text = "⏸ MAIN"
+	elseif IS_ALT then
 		task.spawn(function() startFarm("alt") end)
-		altBtn.BackgroundColor3 = Color3.fromRGB(40,190,100); altBtn.Text = "⏸ ALT"
+		altBtn.BackgroundColor3 = Color3.fromRGB(40,190,100) altBtn.Text = "⏸ ALT"
+	elseif IS_GUARD then
+		task.spawn(function() startFarm("guard") end)
+		guardBtn.BackgroundColor3 = Color3.fromRGB(240,80,80) guardBtn.Text = "⏸ GUARD"
 	end
 end)
 
-local function getLevel()
-	local ok, v = pcall(function()
-		local hud = LP.PlayerGui:FindFirstChild("HUD")
-		if not hud then return "?" end
-		local lvlObj = hud:FindFirstChild("RightBotCorner")
-			and hud.RightBotCorner:FindFirstChild("Line2")
-			and hud.RightBotCorner.Line2:FindFirstChild("Lvl")
-		if lvlObj then
-			return tostring(tonumber(lvlObj.Text:match("%d+")) or "?")
-		end
-		return "?"
-	end)
-	return ok and v or "?"
-end
-
-local function countAltsInServer()
-	local count = 0
-	for _, alt in ipairs(getgenv().AltAccounts) do
-		if Players:FindFirstChild(alt) then count += 1 end
-	end
-	return count
-end
-
-local function isAltOnWrongTeam()
-	if not loopAlt then return false end
-	local char = getChar()
-	if not char then return false end
-	local ok, wrong = pcall(function()
-		local team = LP.Team
-		if team then
-			local name = team.Name:lower()
-			return name:find("red") ~= nil
-		end
-		return false
-	end)
-	return ok and wrong or false
-end
-
-local noClipEnabled = false
+-- NoClip main
+local noClipOn = false
 task.spawn(function()
 	while gui.Parent do
 		if loopMain and not roundPaused and not timerTpDone then
-			if not noClipEnabled then noClipEnabled = true end
-			local char = getChar()
-			if char then
-				for _, part in ipairs(char:GetDescendants()) do
-					if part:IsA("BasePart") then part.CanCollide = false end
+			if not noClipOn then noClipOn = true end
+			local c = getChar()
+			if c then
+				for _, p in ipairs(c:GetDescendants()) do
+					if p:IsA("BasePart") then p.CanCollide = false end
 				end
 				local hrp = getHRP()
 				if hrp and hrp.Position.Y < -10 then
@@ -881,80 +899,72 @@ task.spawn(function()
 				end
 			end
 		else
-			if noClipEnabled then
-				noClipEnabled = false
-				local char = getChar()
-				if char then
-					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then part.CanCollide = true end
-					end
-				end
+			if noClipOn then
+				noClipOn = false
+				local c = getChar()
+				if c then for _, p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = true end end end
 			end
 		end
 		task.wait(0.1)
 	end
 end)
 
+-- Alt wrong team check
 task.spawn(function()
 	while gui.Parent do
 		if loopAlt and not roundPaused and not timerTpDone then
-			if isAltOnWrongTeam() then
-				warn("[WWHub] Alt on wrong team (Red) — going to safezone")
-				roundPaused      = true
-				roundPauseReason = "Wrong Team"
+			local ok, wrong = pcall(function()
+				local t = LP.Team
+				return t and t.Name:lower():find("red") ~= nil
+			end)
+			if ok and wrong then
+				warn("[WWHub] Alt on Red team — safezone")
+				roundPaused = true roundPauseReason = "Wrong Team"
 				tpToSafeZone()
-				repeat task.wait(1) until
-					workspace:FindFirstChild("Blue Team") or
-					workspace:FindFirstChild("Red Team") or
-					not gui.Parent
+				repeat task.wait(1) until workspace:FindFirstChild("Blue Team") or workspace:FindFirstChild("Red Team") or not gui.Parent
 				task.wait(2)
-				roundPaused      = false
-				roundPauseReason = nil
+				roundPaused = false roundPauseReason = nil
 			end
 		end
 		task.wait(1)
 	end
 end)
 
+-- Status sync
 task.spawn(function()
 	while gui and gui.Parent do
-		local altCount = countAltsInServer()
-		local altStr = " | alt=" .. altCount .. "/" .. #getgenv().AltAccounts .. " | Lvl:" .. getLevel()
+		local altCount = countAlts()
+		local info = " | alt="..altCount.."/"..#_G.alt.." | Lv:"..getLevel()
+		local hpInfo = ""
+		if loopAlt then
+			local hum = getHum()
+			if hum and hum.MaxHealth > 0 then hpInfo = " | HP:"..math.floor(hum.Health/hum.MaxHealth*100).."%" end
+		end
 		if starting then
-			statusLbl.TextColor3 = Color3.fromRGB(255, 200, 50)
-			statusLbl.Font       = Enum.Font.GothamBold
-			statusLbl.TextSize   = 13
+			statusLbl.TextColor3 = Color3.fromRGB(255,200,50) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 12
 			setStatus("Starting...")
 		elseif roundPaused then
-			statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
-			statusLbl.Font       = Enum.Font.GothamBold
-			statusLbl.TextSize   = 13
-			setStatus("⏸ " .. (roundPauseReason or "Paused") .. altStr)
+			statusLbl.TextColor3 = Color3.fromRGB(255,80,80) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 12
+			setStatus("⏸ "..(roundPauseReason or "Paused")..info)
 		elseif timerTpDone then
-			statusLbl.TextColor3 = Color3.fromRGB(255, 165, 0)
-			statusLbl.Font       = Enum.Font.GothamBold
-			statusLbl.TextSize   = 13
-			setStatus("⏱ Safe zone" .. altStr)
+			statusLbl.TextColor3 = Color3.fromRGB(255,165,0) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 12
+			setStatus("⏱ Safe zone"..info)
 		elseif pointsCapped then
-			statusLbl.TextColor3 = Color3.fromRGB(255, 215, 0)
-			statusLbl.Font       = Enum.Font.GothamBold
-			statusLbl.TextSize   = 13
-			setStatus("🎯 Cap! pts=" .. getPoints() .. altStr)
+			statusLbl.TextColor3 = Color3.fromRGB(255,215,0) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 12
+			setStatus("🎯 Cap! pts="..getPoints()..info)
+		elseif loopGuard then
+			statusLbl.TextColor3 = Color3.fromRGB(255,100,100) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 13
+			local targets = getTargets()
+			setStatus("🛡 GUARD | targets="..#targets..info)
 		elseif loopAlt then
-			statusLbl.TextColor3 = Color3.fromRGB(80, 255, 140)
-			statusLbl.Font       = Enum.Font.GothamBold
-			statusLbl.TextSize   = 14
-			setStatus("💀 ALT | t=" .. getTimerValue() .. altStr)
+			statusLbl.TextColor3 = Color3.fromRGB(80,255,140) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 13
+			setStatus("💀 ALT | t="..getTimerValue()..info..hpInfo)
 		elseif loopMain then
-			statusLbl.TextColor3 = Color3.fromRGB(100, 200, 255)
-			statusLbl.Font       = Enum.Font.GothamBold
-			statusLbl.TextSize   = 14
-			setStatus("🎮 MAIN | t=" .. getTimerValue() .. altStr)
+			statusLbl.TextColor3 = Color3.fromRGB(100,200,255) statusLbl.Font = Enum.Font.GothamBold statusLbl.TextSize = 13
+			setStatus("🎮 MAIN | t="..getTimerValue()..info)
 		else
-			statusLbl.TextColor3 = Color3.fromRGB(140, 140, 165)
-			statusLbl.Font       = Enum.Font.Gotham
-			statusLbl.TextSize   = 13
-			setStatus("Idle" .. altStr)
+			statusLbl.TextColor3 = Color3.fromRGB(140,140,165) statusLbl.Font = Enum.Font.Gotham statusLbl.TextSize = 12
+			setStatus("Idle"..info)
 		end
 		task.wait(0.5)
 	end
@@ -964,10 +974,8 @@ end)
 task.spawn(function()
 	makeBase()
 	while gui.Parent do
-		local char = LP.Character
-		if char and char.Parent and char ~= handledChar then
-			afterCharacterLoaded(char)
-		end
+		local c = LP.Character
+		if c and c.Parent and c ~= handledChar then afterCharLoaded(c) end
 		if not roundPaused and not timerTpDone then pressKAfterTP() end
 		task.wait(0.25)
 	end
@@ -975,16 +983,14 @@ end)
 
 task.spawn(function()
 	while gui.Parent do
+		if not (loopAlt or loopMain) then task.wait(0.5) continue end
 		local pad = getTeamPad()
-		if pad and not selectingTeam and not roundPaused and not timerTpDone and (loopAlt or loopMain) then
-			task.spawn(selectTeam)
-		end
-		if not selectingTeam and not jugResetting and not starting and not roundPaused and not timerTpDone then
-			local target = getFarmTargetCFrame()
-			if target and not isNearCFrame(target, tpDistanceLimit) then
-				tpAndVerify(target)
-			elseif loopAlt  then tpAlt()
-			elseif loopMain then tpMain() end
+		if pad and not selectingTeam and not roundPaused and not timerTpDone then task.spawn(selectTeam) end
+		if not selectingTeam and not starting and not roundPaused and not timerTpDone then
+			local target = getFarmTarget()
+			if target and not isNearCF(target, tpDistLimit) then tpAndVerify(target)
+			elseif loopAlt  then tpAndVerify(altCFrame)
+			elseif loopMain then tpAndVerify(getMainCF()) end
 		end
 		task.wait(0.08)
 	end
@@ -992,9 +998,7 @@ end)
 
 task.spawn(function()
 	while gui.Parent do
-		if loopMain and not jugResetting and not starting
-			and not selectingTeam and not roundPaused
-			and not pointsCapped and not timerTpDone then
+		if loopMain and not starting and not selectingTeam and not roundPaused and not pointsCapped and not timerTpDone then
 			fireM1()
 		end
 		task.wait(0.12)
@@ -1003,9 +1007,7 @@ end)
 
 task.spawn(function()
 	while gui.Parent do
-		if loopMain and not jugResetting and not starting
-			and not selectingTeam and not roundPaused
-			and not pointsCapped and not timerTpDone then
+		if loopMain and not starting and not selectingTeam and not roundPaused and not pointsCapped and not timerTpDone then
 			fireSkills()
 		end
 		task.wait(0.8)
@@ -1015,10 +1017,10 @@ end)
 task.spawn(function()
 	while gui.Parent do
 		if (loopMain or loopAlt) and not starting and not roundPaused then
-			local bm = getBlockedFarmMode()
-			if bm then pauseFarmForRound(bm) end
-		end
-		task.wait(0.5)
+			local bm = getBlockedMode()
+			if bm then pauseFarm(bm) end
+			task.wait(0.5)
+		else task.wait(2) end
 	end
 end)
 
@@ -1026,20 +1028,37 @@ task.spawn(function()
 	local modes = {"Kills Team","Team Battle","3 Teams","Free For All","Kills FFA"}
 	while gui.Parent do
 		if (loopAlt or loopMain) and not roundPaused then
-			for _, mode in ipairs(modes) do
-				fireInput("mode", mode)
-				task.wait(0.3)
-			end
-		end
-		task.wait(1)
+			for _, m in ipairs(modes) do fireInput("mode",m) task.wait(0.3) end
+			task.wait(2)
+		else task.wait(3) end
 	end
 end)
 
 task.spawn(function()
 	while gui.Parent do
 		task.wait(30)
-		if loopMain and not roundPaused then
-			sendWebhook("Main Farm Report")
-		end
+		if loopMain and not roundPaused then sendWebhook("Main Farm Report") end
 	end
+end)
+
+task.spawn(function()
+	while gui and gui.Parent do task.wait(60) collectgarbage("collect") end
+end)
+
+-- Auto rejoin
+local placeId = game.PlaceId
+local function rejoin()
+	pcall(function() sendWebhook("🔄 Rejoining") end)
+	task.wait(3)
+	pcall(function() TS:Teleport(placeId) end)
+	task.wait(3)
+	pcall(function() TS:TeleportToRandomPlace(placeId) end)
+end
+LP.OnTeleport:Connect(function(s) if s==Enum.TeleportState.RequestedFromServer then task.wait(3) rejoin() end end)
+LP.AncestryChanged:Connect(function(_,p) if not p then rejoin() end end)
+pcall(function() LP.Kicked:Connect(function() rejoin() end) end)
+task.spawn(function()
+	local last = tick()
+	RunService.Heartbeat:Connect(function() last = tick() end)
+	while true do task.wait(10) if tick()-last > 15 then rejoin() break end end
 end)
