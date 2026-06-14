@@ -43,7 +43,9 @@ task.spawn(function()
 			task.wait(5)
 			if checkAlts() then warn("[WWHub] Alt found on recheck — staying") return end
 		end
-		warn("[WWHub] No alt — hopping...")
+		local reason = "No alt in server"
+		warn("[WWHub] MAIN hop — " .. reason)
+		pcall(function() sendWebhook("🔀 MAIN Hopping — " .. reason) end)
 		pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 	end
 	hopIfNeeded()
@@ -66,7 +68,9 @@ task.spawn(function()
 		task.wait(10)
 	end
 	if not found then
-		warn("[WWHub] No main after 10min — hopping...")
+		local reason = "No main found after 10min"
+		warn("[WWHub] ALT hop — " .. reason)
+		pcall(function() sendWebhook("🔀 ALT Hopping — " .. reason) end)
 		pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 		return
 	end
@@ -81,7 +85,9 @@ task.spawn(function()
 				if checkMain() then back = true break end
 			end
 			if not back then
-				warn("[WWHub] Main gone 10min — hopping...")
+				local reason = "Main disconnected for 10min"
+				warn("[WWHub] ALT hop — " .. reason)
+				pcall(function() sendWebhook("🔀 ALT Hopping — " .. reason) end)
 				pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 				break
 			end
@@ -1182,10 +1188,12 @@ end)
 local placeId = game.PlaceId
 local recentlyTeleported = false
 
-local function rejoin()
+local function rejoin(reason)
 	if recentlyTeleported then return end
 	recentlyTeleported = true
-	pcall(function() sendWebhook("🔄 Rejoining") end)
+	reason = reason or "Unknown"
+	warn("[WWHub] Rejoining — " .. reason)
+	pcall(function() sendWebhook("🔄 Rejoining — " .. reason) end)
 	task.wait(3)
 	pcall(function() TS:Teleport(placeId) end)
 	task.wait(5)
@@ -1194,9 +1202,10 @@ end
 
 -- Kicked เท่านั้น (server teleport ไม่ rejoin เพราะ trigger ได้จาก round reset / alt hop)
 pcall(function()
-	LP.Kicked:Connect(function()
-		warn("[WWHub] Kicked — rejoining")
-		rejoin()
+	LP.Kicked:Connect(function(msg)
+		local reason = "Kicked: " .. (msg or "no message")
+		warn("[WWHub] " .. reason)
+		rejoin(reason)
 	end)
 end)
 
@@ -1209,8 +1218,9 @@ task.spawn(function()
 		local gap = tick() - last
 		-- freeze จริงๆ คือ > 60 วิ ไม่ใช่แค่ lag หรือ FPS ต่ำ
 		if gap > 60 then
-			warn("[WWHub] Heartbeat frozen " .. math.floor(gap) .. "s — rejoining")
-			rejoin()
+			local reason = "Heartbeat frozen " .. math.floor(gap) .. "s"
+			warn("[WWHub] " .. reason)
+			rejoin(reason)
 			break
 		end
 	end
