@@ -3,7 +3,7 @@ repeat task.wait(0.1) until game:IsLoaded()
 -- ===== CONFIG =====
 _G.main  = {"igll89dwjm52", "ephe53qzzu56", "Shuhua_Ping"}
 _G.alt   = {"ojexrppy9770", "rwfi55ngxj28", "vgakarhu6240", "ibdm14ljog99", "bnevporw3273", "mhqdcvee3722", "dagasvqp5610", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
-_G.guard = {"Gaeul_4122", "qaaxvbyw5047"} -- ใส่ชื่อ guard ตรงนี้
+_G.guard = {"Gaeul_4122", "qaaxvbyw5047"}
 -- ==================
 
 setfpscap(25)
@@ -1022,71 +1022,89 @@ task.spawn(function()
 	end
 end)
 
--- Guard loop (fixed: ไม่ spam CFrame, validate target ทุกรอบ, แยก interval ให้ชัด)
+-- Guard loop
+-- แยก 2 thread: (1) Heartbeat ติดตาม target ทุก frame ไม่กระตุก (2) attack loop ยิง M1/G/skill
+local guardCurrentTarget = nil  -- target ที่กำลังโจมตีอยู่ตอนนี้
+
+-- Thread 1: Heartbeat tracking — TP ติดตาม target ทุก frame (เบา ไม่ crash)
+local guardTrackConn = nil
+local function startGuardTracking()
+	if guardTrackConn then guardTrackConn:Disconnect() guardTrackConn = nil end
+	guardTrackConn = RunService.Heartbeat:Connect(function()
+		if not loopGuard or not gui or not gui.Parent then
+			guardTrackConn:Disconnect() guardTrackConn = nil return
+		end
+		local target = guardCurrentTarget
+		if not target then return end
+		local tChar = target.Character
+		if not tChar or not tChar.Parent then return end
+		local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+		if not tHRP or not tHRP.Parent then return end
+		local hrp = getHRP()
+		if not hrp then return end
+		-- TP เกาะข้างหลัง target ทุก frame (velocity = 0 เพื่อไม่ให้กระเด็น)
+		pcall(function()
+			hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+			hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
+			hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2.5)
+		end)
+	end)
+end
+
+-- Thread 2: Attack loop — M1/G/skill ทุก interval ที่กำหนด
 task.spawn(function()
-	local lastTpTime = 0
 	local lastM1Time = 0
 	local lastGTime  = 0
-	local TP_INTERVAL = 0.4   -- TP ไปหา target ทุก 0.4 วิ (เดิม 0.15 วิ หนักเกิน)
-	local M1_INTERVAL = 0.15  -- fireM1 ทุก 0.15 วิ
-	local G_INTERVAL  = 0.3   -- pressG ทุก 0.3 วิ
+	local M1_INTERVAL = 0.15
+	local G_INTERVAL  = 0.35
 
 	while gui.Parent do
-		if not loopGuard then task.wait(1) continue end
+		if not loopGuard then
+			guardCurrentTarget = nil
+			if guardTrackConn then guardTrackConn:Disconnect() guardTrackConn = nil end
+			task.wait(1)
+			continue
+		end
+
+		-- เริ่ม tracking thread ถ้ายังไม่ได้เริ่ม
+		if not guardTrackConn then startGuardTracking() end
 
 		local targets = getTargets()
-		if #targets == 0 then task.wait(2) continue end
+		if #targets == 0 then
+			guardCurrentTarget = nil
+			task.wait(2)
+			continue
+		end
 
 		for _, target in ipairs(targets) do
 			if not loopGuard or not gui.Parent then break end
 
-			-- validate target ใหม่ทุกครั้ง
+			-- validate
 			local tChar = target.Character
 			if not tChar or not tChar.Parent then continue end
-
 			local tHRP = tChar:FindFirstChild("HumanoidRootPart")
 			if not tHRP or not tHRP.Parent then continue end
 
-			local hrp = getHRP()
-			if not hrp then continue end
-
-			-- TP ครั้งแรก
-			pcall(function()
-				hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-				hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 3)
-			end)
-			lastTpTime = tick()
-			task.wait(0.3)
+			-- บอก tracking thread ว่า target คือใคร
+			guardCurrentTarget = target
+			task.wait(0.1) -- ให้ Heartbeat TP ไปก่อน 1 frame
 
 			-- โจมตี 5 วิ
 			local attackEnd = tick() + 5
 			while tick() < attackEnd and loopGuard and gui.Parent do
 				local now = tick()
 
-				-- validate target ทุกรอบ
+				-- validate target ยังอยู่ไหม
 				tChar = target.Character
 				if not tChar or not tChar.Parent then break end
 				tHRP = tChar:FindFirstChild("HumanoidRootPart")
 				if not tHRP or not tHRP.Parent then break end
-				hrp = getHRP()
-				if not hrp then break end
 
-				-- TP ตาม target (throttled)
-				if now - lastTpTime >= TP_INTERVAL then
-					pcall(function()
-						hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-						hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 3)
-					end)
-					lastTpTime = now
-				end
-
-				-- M1 (throttled)
 				if now - lastM1Time >= M1_INTERVAL then
 					fireM1()
 					lastM1Time = now
 				end
 
-				-- G (throttled)
 				if now - lastGTime >= G_INTERVAL then
 					pressG()
 					lastGTime = now
@@ -1095,16 +1113,18 @@ task.spawn(function()
 				task.wait(0.1)
 			end
 
-			-- skills หลังโจมตี
-			if loopGuard then
-				fireSkills()
-			end
-
-			task.wait(0.5) -- พักก่อนไป target ถัดไป
+			-- skills หลังโจมตีแต่ละ target
+			if loopGuard then fireSkills() end
+			guardCurrentTarget = nil
+			task.wait(0.3)
 		end
 
-		task.wait(0.2)
+		task.wait(0.1)
 	end
+
+	-- cleanup
+	guardCurrentTarget = nil
+	if guardTrackConn then guardTrackConn:Disconnect() guardTrackConn = nil end
 end)
 
 task.spawn(function()
@@ -1119,19 +1139,49 @@ task.spawn(function()
 end)
 
 -- Auto rejoin
+-- เงื่อนไข rejoin: โดน kick จริงๆ หรือ server teleport เท่านั้น
+-- ไม่ rejoin จาก Heartbeat freeze (เพราะ setfpscap(25) ทำให้ lag ได้) 
+-- ไม่ rejoin จาก AncestryChanged (trigger ได้ตอน respawn)
 local placeId = game.PlaceId
+local recentlyTeleported = false
+
 local function rejoin()
+	if recentlyTeleported then return end
+	recentlyTeleported = true
 	pcall(function() sendWebhook("🔄 Rejoining") end)
 	task.wait(3)
 	pcall(function() TS:Teleport(placeId) end)
-	task.wait(3)
+	task.wait(5)
 	pcall(function() TS:TeleportToRandomPlace(placeId) end)
 end
-LP.OnTeleport:Connect(function(s) if s==Enum.TeleportState.RequestedFromServer then task.wait(3) rejoin() end end)
-LP.AncestryChanged:Connect(function(_,p) if not p then rejoin() end end)
-pcall(function() LP.Kicked:Connect(function() rejoin() end) end)
+
+-- Server-side teleport (ปกติ ต้องทำ)
+LP.OnTeleport:Connect(function(s)
+	if s == Enum.TeleportState.RequestedFromServer then
+		task.wait(3) rejoin()
+	end
+end)
+
+-- Kicked เท่านั้น (ไม่ใช่ AncestryChanged ซึ่ง trigger ตอน respawn ด้วย)
+pcall(function()
+	LP.Kicked:Connect(function()
+		warn("[WWHub] Kicked — rejoining")
+		rejoin()
+	end)
+end)
+
+-- Heartbeat watchdog: เพิ่ม threshold เป็น 60 วิ และเช็คว่าไม่ใช่แค่ lag
 task.spawn(function()
 	local last = tick()
 	RunService.Heartbeat:Connect(function() last = tick() end)
-	while true do task.wait(10) if tick()-last > 15 then rejoin() break end end
+	while true do
+		task.wait(30)
+		local gap = tick() - last
+		-- freeze จริงๆ คือ > 60 วิ ไม่ใช่แค่ lag หรือ FPS ต่ำ
+		if gap > 60 then
+			warn("[WWHub] Heartbeat frozen " .. math.floor(gap) .. "s — rejoining")
+			rejoin()
+			break
+		end
+	end
 end)
