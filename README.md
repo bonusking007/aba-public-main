@@ -274,7 +274,7 @@ end
 local function tpAndVerify(cf)
 	if not tpToCF(cf) then return false end
 	task.delay(watchdogTime, function()
-		if gui and gui.Parent and not selectingTeam and (loopAlt or loopMain)
+		if gui and gui.Parent and not selectingTeam and (loopAlt or loopMain or guardActingAsAlt)
 			and not isNearCF(cf, tpDistLimit) and not timerTpDone and not roundPaused then
 			tpToCF(cf)
 		end
@@ -979,14 +979,15 @@ end)
 
 task.spawn(function()
 	while gui.Parent do
-		if not (loopAlt or loopMain) then task.wait(0.5) continue end
+		if not (loopAlt or loopMain or guardActingAsAlt) then task.wait(0.5) continue end
 		local pad = getTeamPad()
 		if pad and not selectingTeam and not roundPaused and not timerTpDone then task.spawn(selectTeam) end
 		if not selectingTeam and not starting and not roundPaused and not timerTpDone then
 			local target = getFarmTarget()
 			if target and not isNearCF(target, tpDistLimit) then tpAndVerify(target)
-			elseif loopAlt  then tpAndVerify(altCFrame)
-			elseif loopMain then tpAndVerify(getMainCF()) end
+			elseif loopAlt           then tpAndVerify(altCFrame)
+			elseif loopMain          then tpAndVerify(getMainCF())
+			elseif guardActingAsAlt  then tpAndVerify(altCFrame) end
 		end
 		task.wait(0.08)
 	end
@@ -1084,9 +1085,6 @@ task.spawn(function()
 		task.spawn(function()
 			task.wait(0.5)
 			if guardActingAsAlt and loopGuard then
-				local nc = getChar()
-				if nc then afterCharLoaded(nc) end
-				task.wait(0.3)
 				tpAndVerify(altCFrame)
 			end
 		end)
@@ -1111,12 +1109,7 @@ task.spawn(function()
 			guardCurrentTarget = nil
 			if not guardActingAsAlt then startGuardAlt() end
 
-			-- ขณะทำ alt: ยืนนิ่งที่ altCFrame เดียว ไม่ทำอะไรทั้งนั้น
-			if not roundPaused and not timerTpDone then
-				if not isNearCF(altCFrame, tpDistLimit) then
-					tpAndVerify(altCFrame)
-				end
-			end
+			-- farm loop หลักจัดการ TP ไป altCFrame แทน (เหมือน alt 100%)
 			task.wait(2) -- เช็ค target ใหม่ทุก 2 วิ (ไม่ leak)
 			continue
 		end
@@ -1178,7 +1171,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-	while gui and gui.Parent do task.wait(60) collectgarbage("collect") end
+	while gui and gui.Parent do task.wait(60) pcall(gcinfo) end
 end)
 
 -- Auto rejoin
