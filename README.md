@@ -1,15 +1,9 @@
---- V.5.0
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
--- ใส่ชื่อตัวเองในช่องที่ตรงกับ role
--- main = ฟาร์ม baseplate ปกติ
--- alt  = ฟาร์ม baseplate (ทีม blue)
--- guard = ไป m1/skill/G ใส่ผู้เล่นคนอื่นทุกคนในเซิฟ
-
 _G.main  = {"igll89dwjm52", "ephe53qzzu56", "Shuhua_Ping"}
 _G.alt   = {"ojexrppy9770", "rwfi55ngxj28", "vgakarhu6240", "ibdm14ljog99", "bnevporw3273", "mhqdcvee3722", "dagasvqp5610", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
-_G.guard = {"qaaxvbyw5047"} -- ใส่ชื่อ guard ตรงนี้
+_G.guard = {"Gaeul_4122", "qaaxvbyw5047"} -- ใส่ชื่อ guard ตรงนี้
 -- ==================
 
 setfpscap(25)
@@ -22,7 +16,6 @@ local UIS        = game:GetService("UserInputService")
 local TS         = game:GetService("TeleportService")
 local LP         = Players.LocalPlayer
 
--- ตรวจว่าตัวเองเป็น role อะไร
 local myName = LP.Name
 local IS_MAIN  = false
 local IS_ALT   = false
@@ -35,7 +28,6 @@ for _, n in ipairs(_G.guard) do if n == myName then IS_GUARD = true end end
 warn("[WWHub] Role: " .. (IS_MAIN and "MAIN" or IS_ALT and "ALT" or IS_GUARD and "GUARD" or "UNKNOWN"))
 
 -- ===== Server hop checks =====
--- MAIN: ต้องมี alt อยู่ในเซิฟ
 task.spawn(function()
 	if not IS_MAIN then return end
 	task.wait(5)
@@ -47,7 +39,6 @@ task.spawn(function()
 	end
 	local function hopIfNeeded()
 		if checkAlts() then warn("[WWHub] Alt found — staying") return end
-		-- recheck 3 ครั้ง
 		for _ = 1, 3 do
 			task.wait(5)
 			if checkAlts() then warn("[WWHub] Alt found on recheck — staying") return end
@@ -59,7 +50,6 @@ task.spawn(function()
 	while true do task.wait(60*30) if IS_MAIN then hopIfNeeded() end end
 end)
 
--- ALT: ต้องมี main อยู่ในเซิฟ ถ้าไม่มีใน 5 นาทีให้ hop
 task.spawn(function()
 	if not IS_ALT then return end
 	task.wait(5)
@@ -137,7 +127,6 @@ if not pcall(function() _request = request or http_request or http.request end) 
 	_request = function() end
 end
 
--- Avatar
 local avatarUrl = ""
 task.spawn(function()
 	pcall(function()
@@ -379,14 +368,27 @@ end
 task.spawn(function()
 	while gui and gui.Parent do
 		if loopAlt and not roundPaused and not timerTpDone and not starting then
-			if isCharReady() then
-				local hum = getHum()
-				if hum and hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) < 0.9 then
-					warn("[WWHub] Alt HP < 90% — resetting")
+			local hum = getHum()
+			local hrp = getHRP()
+			if hum and hrp then
+				local hpRatio = hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) or 1
+				local isAlive = hum.Health > 0 and hrp.Position.Y > -100
+				-- HP < 90% ให้ reset ทันที ไม่ต้องรอ isCharReady()
+				if isAlive and hpRatio < 0.9 then
+					warn("[WWHub] Alt HP < 90% (" .. math.floor(hpRatio*100) .. "%) — resetting")
 					pcall(function() hum.Health = 0 end)
 					task.wait(1.5)
 					local waited = 0
-					repeat task.wait(0.5) waited += 0.5 until isCharReady() or waited > 10
+					repeat task.wait(0.5) waited += 0.5 until isCharReady() or waited > 12
+					local nc = getChar()
+					if nc then afterCharLoaded(nc) end
+					task.wait(0.5)
+					if loopAlt and not roundPaused then tpAndVerify(altCFrame) end
+				-- ตายแล้วแต่ยังไม่ respawn ให้รอแล้วจัดการ
+				elseif not isAlive and hum.Health <= 0 then
+					warn("[WWHub] Alt already dead — waiting respawn")
+					local waited = 0
+					repeat task.wait(0.5) waited += 0.5 until isCharReady() or waited > 12
 					local nc = getChar()
 					if nc then afterCharLoaded(nc) end
 					task.wait(0.5)
@@ -461,6 +463,13 @@ local function countAlts()
 	local n = 0
 	for _, name in ipairs(_G.alt) do if Players:FindFirstChild(name) then n += 1 end end
 	return n
+end
+
+-- ===== ตรวจว่า mode ปัจจุบันมี team pad ไหม (FFA = ไม่มี) =====
+local function hasTeamPads()
+	return workspace:FindFirstChild("Blue Team") ~= nil
+		or workspace:FindFirstChild("Red Team") ~= nil
+		or workspace:FindFirstChild("Green Team") ~= nil
 end
 
 -- ===== Blocked Mode =====
@@ -588,7 +597,7 @@ local function getTargets()
 	return targets
 end
 
--- G spam สำหรับ main
+-- G spam สำหรับ main เท่านั้น (guard ใช้ของตัวเอง)
 task.spawn(function()
 	while gui and gui.Parent do
 		if loopMain and not roundPaused and not timerTpDone and not starting then
@@ -653,7 +662,6 @@ header.BackgroundColor3 = Color3.fromRGB(20,20,32)
 header.BorderSizePixel = 0 header.Parent = panel
 Instance.new("UICorner",header).CornerRadius = UDim.new(0,14)
 
--- Role badge
 local roleBadge = Instance.new("TextLabel")
 roleBadge.Size = UDim2.new(0,60,0,22)
 roleBadge.Position = UDim2.new(0,12,0,4)
@@ -858,24 +866,55 @@ task.spawn(function()
 	end
 end)
 
--- Alt wrong team check
+-- ===== Alt Wrong Team Check (FIXED) =====
+-- บัคเดิม: ถ้าเป็น FFA (ไม่มี team pad เลย) จะ loop ค้างตลอดไม่ออก
+-- แก้: เพิ่ม timeout 90 วิ + เช็คว่ามีทีมไหมก่อนค่อย pause
 task.spawn(function()
 	while gui.Parent do
-		if loopAlt and not roundPaused and not timerTpDone then
-			local ok, wrong = pcall(function()
-				local t = LP.Team
-				return t and t.Name:lower():find("red") ~= nil
-			end)
-			if ok and wrong then
-				warn("[WWHub] Alt on Red team — safezone")
-				roundPaused = true roundPauseReason = "Wrong Team"
-				tpToSafeZone()
-				repeat task.wait(1) until workspace:FindFirstChild("Blue Team") or workspace:FindFirstChild("Red Team") or not gui.Parent
-				task.wait(2)
-				roundPaused = false roundPauseReason = nil
-			end
-		end
 		task.wait(1)
+		if not loopAlt or roundPaused or timerTpDone then continue end
+
+		-- เช็ค wrong team เฉพาะเมื่อมี team pad จริงๆ (ไม่ใช่ FFA)
+		if not hasTeamPads() then continue end
+
+		local ok, onRedTeam = pcall(function()
+			local t = LP.Team
+			return t ~= nil and t.Name:lower():find("red") ~= nil
+		end)
+
+		if not (ok and onRedTeam) then continue end
+
+		-- ยืนยัน wrong team อีก 1 วิ ก่อน pause (ป้องกัน false positive ตอน transition)
+		task.wait(1)
+		if not loopAlt or roundPaused or timerTpDone then continue end
+		if not hasTeamPads() then continue end
+
+		local ok2, stillRed = pcall(function()
+			local t = LP.Team
+			return t ~= nil and t.Name:lower():find("red") ~= nil
+		end)
+		if not (ok2 and stillRed) then continue end
+
+		warn("[WWHub] Alt on Red team — pausing")
+		roundPaused = true
+		roundPauseReason = "Wrong Team"
+		tpToSafeZone()
+
+		-- รอจน: (1) มี Blue Team pad ปรากฏ, (2) ไม่มีทีมเลย (FFA เริ่ม), หรือ (3) timeout 90 วิ
+		local waited = 0
+		repeat
+			task.wait(1)
+			waited += 1
+			-- ถ้า mode เปลี่ยนเป็น FFA (pad หายหมด) ให้ออกได้เลย
+			if not hasTeamPads() then break end
+			-- ถ้า Blue Team pad ปรากฏแล้ว ออกได้
+			if workspace:FindFirstChild("Blue Team") then break end
+		until waited >= 90 or not gui.Parent or not loopAlt
+
+		task.wait(1.5)
+		roundPaused = false
+		roundPauseReason = nil
+		warn("[WWHub] Wrong team pause ended (waited=" .. waited .. "s)")
 	end
 end)
 
@@ -983,47 +1022,88 @@ task.spawn(function()
 	end
 end)
 
--- Guard loop: TP ไปหลัง target ทีละคน โจมตี 5 วิ แล้วไปคนถัดไป
+-- Guard loop (fixed: ไม่ spam CFrame, validate target ทุกรอบ, แยก interval ให้ชัด)
 task.spawn(function()
+	local lastTpTime = 0
+	local lastM1Time = 0
+	local lastGTime  = 0
+	local TP_INTERVAL = 0.4   -- TP ไปหา target ทุก 0.4 วิ (เดิม 0.15 วิ หนักเกิน)
+	local M1_INTERVAL = 0.15  -- fireM1 ทุก 0.15 วิ
+	local G_INTERVAL  = 0.3   -- pressG ทุก 0.3 วิ
+
 	while gui.Parent do
 		if not loopGuard then task.wait(1) continue end
+
 		local targets = getTargets()
 		if #targets == 0 then task.wait(2) continue end
+
 		for _, target in ipairs(targets) do
 			if not loopGuard or not gui.Parent then break end
+
+			-- validate target ใหม่ทุกครั้ง
 			local tChar = target.Character
-			if not tChar then continue end
+			if not tChar or not tChar.Parent then continue end
+
 			local tHRP = tChar:FindFirstChild("HumanoidRootPart")
-			if not tHRP then continue end
+			if not tHRP or not tHRP.Parent then continue end
+
 			local hrp = getHRP()
 			if not hrp then continue end
-			-- TP ไปด้านหลัง target
+
+			-- TP ครั้งแรก
 			pcall(function()
 				hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
 				hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 3)
 			end)
-			task.wait(0.2)
-			-- โจมตีนาน 5 วิ ติดตาม target ตลอด
+			lastTpTime = tick()
+			task.wait(0.3)
+
+			-- โจมตี 5 วิ
 			local attackEnd = tick() + 5
-			while tick() < attackEnd and loopGuard do
-				fireM1()
-				task.wait(0.1)
-				pressG()
-				task.wait(0.05)
-				-- ติดตาม target
+			while tick() < attackEnd and loopGuard and gui.Parent do
+				local now = tick()
+
+				-- validate target ทุกรอบ
+				tChar = target.Character
+				if not tChar or not tChar.Parent then break end
 				tHRP = tChar:FindFirstChild("HumanoidRootPart")
-				if not tHRP then break end
+				if not tHRP or not tHRP.Parent then break end
 				hrp = getHRP()
-				if hrp then
+				if not hrp then break end
+
+				-- TP ตาม target (throttled)
+				if now - lastTpTime >= TP_INTERVAL then
 					pcall(function()
 						hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
 						hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 3)
 					end)
+					lastTpTime = now
 				end
+
+				-- M1 (throttled)
+				if now - lastM1Time >= M1_INTERVAL then
+					fireM1()
+					lastM1Time = now
+				end
+
+				-- G (throttled)
+				if now - lastGTime >= G_INTERVAL then
+					pressG()
+					lastGTime = now
+				end
+
+				task.wait(0.1)
 			end
-			if loopGuard then fireSkills() end
-			task.wait(0.3)
+
+			-- skills หลังโจมตี
+			if loopGuard then
+				fireSkills()
+			end
+
+			task.wait(0.5) -- พักก่อนไป target ถัดไป
 		end
+
+		task.wait(0.2)
 	end
 end)
 
