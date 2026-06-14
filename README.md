@@ -573,7 +573,6 @@ startFarm = function(mode)
 end
 
 -- ===== GUARD Logic =====
--- ฟังก์ชันดึงรายชื่อ target (ทุกคนในเซิฟยกเว้น alt/main/guard/ตัวเอง)
 local function getTargets()
 	local skip = {}
 	for _, n in ipairs(_G.main)  do skip[n] = true end
@@ -588,56 +587,6 @@ local function getTargets()
 	end
 	return targets
 end
-
--- Guard loop: วน TP ไปหลัง target ทีละคน แล้ว m1/skill/G ทุก 5 วิ
-task.spawn(function()
-	while gui and gui.Parent do
-		if not loopGuard then task.wait(1) continue end
-		local targets = getTargets()
-		if #targets == 0 then task.wait(2) continue end
-		for _, target in ipairs(targets) do
-			if not loopGuard or not gui or not gui.Parent then break end
-			local tChar = target.Character
-			if not tChar then continue end
-			local tHRP = tChar:FindFirstChild("HumanoidRootPart")
-			if not tHRP then continue end
-			-- TP ไปด้านหลัง target
-			local hrp = getHRP()
-			if not hrp then continue end
-			local behindCF = tHRP.CFrame * CFrame.new(0, 0, 3) -- 3 studs หลัง
-			pcall(function()
-				hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-				hrp.CFrame = behindCF
-			end)
-			task.wait(0.2)
-			-- โจมตี 5 วิ
-			local attackEnd = tick() + 5
-			while tick() < attackEnd and loopGuard do
-				fireM1()
-				task.wait(0.12)
-				pressG()
-				task.wait(0.05)
-				-- TP ติดตาม target อยู่เรื่อยๆ
-				tHRP = tChar:FindFirstChild("HumanoidRootPart")
-				if tHRP then
-					hrp = getHRP()
-					if hrp then
-						behindCF = tHRP.CFrame * CFrame.new(0, 0, 3)
-						pcall(function()
-							hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-							hrp.CFrame = behindCF
-						end)
-					end
-				else
-					break -- target ตายแล้ว
-				end
-			end
-			-- skill หลังจบ 5 วิ
-			if loopGuard then fireSkills() end
-			task.wait(0.5)
-		end
-	end
-end)
 
 -- G spam สำหรับ main
 task.spawn(function()
@@ -1031,6 +980,50 @@ task.spawn(function()
 			for _, m in ipairs(modes) do fireInput("mode",m) task.wait(0.3) end
 			task.wait(2)
 		else task.wait(3) end
+	end
+end)
+
+-- Guard loop: TP ไปหลัง target ทีละคน โจมตี 5 วิ แล้วไปคนถัดไป
+task.spawn(function()
+	while gui.Parent do
+		if not loopGuard then task.wait(1) continue end
+		local targets = getTargets()
+		if #targets == 0 then task.wait(2) continue end
+		for _, target in ipairs(targets) do
+			if not loopGuard or not gui.Parent then break end
+			local tChar = target.Character
+			if not tChar then continue end
+			local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+			if not tHRP then continue end
+			local hrp = getHRP()
+			if not hrp then continue end
+			-- TP ไปด้านหลัง target
+			pcall(function()
+				hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+				hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 3)
+			end)
+			task.wait(0.2)
+			-- โจมตีนาน 5 วิ ติดตาม target ตลอด
+			local attackEnd = tick() + 5
+			while tick() < attackEnd and loopGuard do
+				fireM1()
+				task.wait(0.1)
+				pressG()
+				task.wait(0.05)
+				-- ติดตาม target
+				tHRP = tChar:FindFirstChild("HumanoidRootPart")
+				if not tHRP then break end
+				hrp = getHRP()
+				if hrp then
+					pcall(function()
+						hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+						hrp.CFrame = tHRP.CFrame * CFrame.new(0, 0, 3)
+					end)
+				end
+			end
+			if loopGuard then fireSkills() end
+			task.wait(0.3)
+		end
 	end
 end)
 
