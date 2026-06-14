@@ -59,13 +59,14 @@ task.spawn(function()
 		end
 		return false
 	end
+	-- รอ main สูงสุด 10 นาที (เดิม 5 นาที) ให้ main มีเวลา load/rejoin
 	local found = false
-	for _ = 1, 30 do
+	for _ = 1, 60 do
 		if checkMain() then found = true break end
 		task.wait(10)
 	end
 	if not found then
-		warn("[WWHub] No main after 5min — hopping...")
+		warn("[WWHub] No main after 10min — hopping...")
 		pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 		return
 	end
@@ -74,12 +75,13 @@ task.spawn(function()
 		if not IS_ALT then break end
 		if not checkMain() then
 			local back = false
-			for _ = 1, 30 do
+			-- รอ main กลับมา 10 นาที (เดิม 5 นาที) ก่อน hop
+			for _ = 1, 60 do
 				task.wait(10)
 				if checkMain() then back = true break end
 			end
 			if not back then
-				warn("[WWHub] Main gone 5min — hopping...")
+				warn("[WWHub] Main gone 10min — hopping...")
 				pcall(function() TS:TeleportToRandomPlace(game.PlaceId) end)
 				break
 			end
@@ -1023,10 +1025,13 @@ task.spawn(function()
 end)
 
 -- Guard loop
--- แยก 2 thread: (1) Heartbeat ติดตาม target ทุก frame ไม่กระตุก (2) attack loop ยิง M1/G/skill
-local guardCurrentTarget = nil  -- target ที่กำลังโจมตีอยู่ตอนนี้
+-- แยก 2 thread: (1) Heartbeat ติดตาม target ทุก frame (2) attack/mode-switch loop
+-- ถ้าไม่มี target นอกจาก main/alt/guard → switch ไปทำ alt แทน
+-- ถ้ามี target → กลับมา guard ทันที (ไม่ leak thread)
+local guardCurrentTarget = nil
+local guardActingAsAlt   = false  -- true = กำลังทำหน้าที่ alt อยู่
 
--- Thread 1: Heartbeat tracking — TP ติดตาม target ทุก frame (เบา ไม่ crash)
+-- Thread 1: Heartbeat tracking
 local guardTrackConn = nil
 local function startGuardTracking()
 	if guardTrackConn then guardTrackConn:Disconnect() guardTrackConn = nil end
@@ -1042,7 +1047,6 @@ local function startGuardTracking()
 		if not tHRP or not tHRP.Parent then return end
 		local hrp = getHRP()
 		if not hrp then return end
-		-- TP เกาะข้างหลัง target ทุก frame (velocity = 0 เพื่อไม่ให้กระเด็น)
 		pcall(function()
 			hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
 			hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
@@ -1051,69 +1055,101 @@ local function startGuardTracking()
 	end)
 end
 
--- Thread 2: Attack loop — M1/G/skill ทุก interval ที่กำหนด
+-- Thread 2: Attack / mode-switch loop
 task.spawn(function()
 	local lastM1Time = 0
 	local lastGTime  = 0
 	local M1_INTERVAL = 0.15
 	local G_INTERVAL  = 0.35
 
+	local function stopGuardAlt()
+		if not guardActingAsAlt then return end
+		guardActingAsAlt = false
+		-- หยุด alt behavior (ไม่ลบ loopAlt เพราะ loopGuard เป็นคนคุม)
+		warn("[WWHub] Guard: target found — switching back to GUARD")
+	end
+
+	local function startGuardAlt()
+		if guardActingAsAlt then return end
+		guardActingAsAlt = true
+		guardCurrentTarget = nil
+		warn("[WWHub] Guard: no targets — acting as ALT")
+		-- TP ไปฟาร์มพร้อม alt
+		task.spawn(function()
+			task.wait(0.5)
+			if guardActingAsAlt and loopGuard then
+				local nc = getChar()
+				if nc then afterCharLoaded(nc) end
+				task.wait(0.3)
+				tpAndVerify(altCFrame)
+			end
+		end)
+	end
+
 	while gui.Parent do
 		if not loopGuard then
+			-- cleanup ทั้งหมดเมื่อ guard หยุด
 			guardCurrentTarget = nil
+			guardActingAsAlt = false
 			if guardTrackConn then guardTrackConn:Disconnect() guardTrackConn = nil end
 			task.wait(1)
 			continue
 		end
 
-		-- เริ่ม tracking thread ถ้ายังไม่ได้เริ่ม
 		if not guardTrackConn then startGuardTracking() end
 
 		local targets = getTargets()
+
+		-- ไม่มี target → ทำหน้าที่ alt
 		if #targets == 0 then
 			guardCurrentTarget = nil
-			task.wait(2)
+			if not guardActingAsAlt then startGuardAlt() end
+
+			-- ขณะทำ alt: ยืนนิ่งที่ altCFrame เดียว ไม่ทำอะไรทั้งนั้น
+			if not roundPaused and not timerTpDone then
+				if not isNearCF(altCFrame, tpDistLimit) then
+					tpAndVerify(altCFrame)
+				end
+			end
+			task.wait(2) -- เช็ค target ใหม่ทุก 2 วิ (ไม่ leak)
 			continue
 		end
 
+		-- มี target → กลับมา guard
+		if guardActingAsAlt then stopGuardAlt() end
+
 		for _, target in ipairs(targets) do
 			if not loopGuard or not gui.Parent then break end
+			-- ถ้ามี target ใหม่เข้ามากลางคัน break ออกไปเช็คใหม่
+			if getTargets() ~= targets then break end
 
-			-- validate
 			local tChar = target.Character
 			if not tChar or not tChar.Parent then continue end
 			local tHRP = tChar:FindFirstChild("HumanoidRootPart")
 			if not tHRP or not tHRP.Parent then continue end
 
-			-- บอก tracking thread ว่า target คือใคร
 			guardCurrentTarget = target
-			task.wait(0.1) -- ให้ Heartbeat TP ไปก่อน 1 frame
+			task.wait(0.1)
 
-			-- โจมตี 5 วิ
 			local attackEnd = tick() + 5
 			while tick() < attackEnd and loopGuard and gui.Parent do
 				local now = tick()
 
-				-- validate target ยังอยู่ไหม
 				tChar = target.Character
 				if not tChar or not tChar.Parent then break end
 				tHRP = tChar:FindFirstChild("HumanoidRootPart")
 				if not tHRP or not tHRP.Parent then break end
 
 				if now - lastM1Time >= M1_INTERVAL then
-					fireM1()
-					lastM1Time = now
+					fireM1() lastM1Time = now
 				end
-
 				if now - lastGTime >= G_INTERVAL then
-					pressG()
-					lastGTime = now
+					pressG() lastGTime = now
 				end
 
 				task.wait(0.1)
 			end
 
-			-- skills หลังโจมตีแต่ละ target
 			if loopGuard then fireSkills() end
 			guardCurrentTarget = nil
 			task.wait(0.3)
@@ -1122,8 +1158,9 @@ task.spawn(function()
 		task.wait(0.1)
 	end
 
-	-- cleanup
+	-- cleanup เมื่อ gui ถูก destroy
 	guardCurrentTarget = nil
+	guardActingAsAlt = false
 	if guardTrackConn then guardTrackConn:Disconnect() guardTrackConn = nil end
 end)
 
@@ -1155,14 +1192,7 @@ local function rejoin()
 	pcall(function() TS:TeleportToRandomPlace(placeId) end)
 end
 
--- Server-side teleport (ปกติ ต้องทำ)
-LP.OnTeleport:Connect(function(s)
-	if s == Enum.TeleportState.RequestedFromServer then
-		task.wait(3) rejoin()
-	end
-end)
-
--- Kicked เท่านั้น (ไม่ใช่ AncestryChanged ซึ่ง trigger ตอน respawn ด้วย)
+-- Kicked เท่านั้น (server teleport ไม่ rejoin เพราะ trigger ได้จาก round reset / alt hop)
 pcall(function()
 	LP.Kicked:Connect(function()
 		warn("[WWHub] Kicked — rejoining")
