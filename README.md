@@ -7,7 +7,7 @@ repeat task.wait(0.1) until game:IsLoaded()
 -- alt  = ฟาร์ม baseplate (ทีม blue)
 -- guard = ไป m1/skill/G ใส่ผู้เล่นคนอื่นทุกคนในเซิฟ
 
-_G.main  = {"Xiong4448", "Long_4030", "Shuhua_Ping"}
+_G.main  = {"igll89dwjm52", "ephe53qzzu56", "Shuhua_Ping"}
 _G.alt   = {"ojexrppy9770", "rwfi55ngxj28", "vgakarhu6240", "ibdm14ljog99", "bnevporw3273", "mhqdcvee3722", "dagasvqp5610", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
 _G.guard = {"qaaxvbyw5047"} -- ใส่ชื่อ guard ตรงนี้
 -- ==================
