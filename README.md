@@ -1,4 +1,4 @@
---- V.6.1 Fixed
+--- V.6.2
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
@@ -224,7 +224,7 @@ end
 local function tpAndVerify(cf)
 	if not tpToCF(cf) then return false end
 	task.delay(watchdogTime, function()
-		if gui and gui.Parent and not selectingTeam and (loopAlt or loopMain or loopGuard)
+		if gui and gui.Parent and not selectingTeam and (loopAlt or loopMain)
 			and not isNearCF(cf,tpDistLimit) and not timerTpDone and not roundPaused then
 			tpToCF(cf)
 		end
@@ -299,30 +299,55 @@ local function pressKAfterTP()
 end
 
 -- ===== Alt HP Reset =====
+-- ใช้หลายวิธีในการฆ่า character เพราะ hum.Health=0 อาจถูก server block
+local function killCharacter()
+	local char = getChar()
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	-- วิธี 1: set Health ตรงๆ
+	pcall(function() hum.Health = 0 end)
+	task.wait(0.1)
+	if hum.Health > 0 then
+		-- วิธี 2: FireServer Loaded (แจ้ง respawn)
+		pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Loaded"):FireServer() end)
+	end
+end
+
 task.spawn(function()
 	while gui and gui.Parent do
 		if loopAlt and not roundPaused and not timerTpDone and not starting then
-			local hum=getHum() local hrp=getHRP()
+			local hum = getHum()
+			local hrp = getHRP()
 			if hum and hrp then
-				local ratio=hum.MaxHealth>0 and (hum.Health/hum.MaxHealth) or 1
-				local alive=hum.Health>0 and hrp.Position.Y>-100
-				if alive and ratio<0.9 then
-					warn("[WWHub] Alt HP <90% — resetting")
-					pcall(function() hum.Health=0 end)
-					task.wait(1.5)
-					local w=0 repeat task.wait(0.5) w+=0.5 until isCharReady() or w>12
-					local nc=getChar() if nc then afterCharLoaded(nc) end
+				local maxHp = hum.MaxHealth
+				local curHp = hum.Health
+				local ratio = maxHp > 0 and (curHp / maxHp) or 1
+				local alive = curHp > 0 and hrp.Position.Y > -100
+
+				if alive and ratio < 0.9 then
+					warn("[WWHub] Alt HP " .. math.floor(ratio*100) .. "% — resetting")
+					killCharacter()
+					-- รอ respawn จริงๆ
+					local w = 0
+					repeat task.wait(0.3) w += 0.3 until isCharReady() or w > 15
+					local nc = getChar()
+					if nc then afterCharLoaded(nc) end
 					task.wait(0.5)
-					if loopAlt and not roundPaused then tpAndVerify(altCFrame) end
-				elseif not alive and hum.Health<=0 then
-					local w=0 repeat task.wait(0.5) w+=0.5 until isCharReady() or w>12
-					local nc=getChar() if nc then afterCharLoaded(nc) end
+					if loopAlt and not roundPaused then tpToCF(altCFrame) end
+
+				elseif not alive and curHp <= 0 then
+					-- ตายแล้วรอ respawn
+					local w = 0
+					repeat task.wait(0.3) w += 0.3 until isCharReady() or w > 15
+					local nc = getChar()
+					if nc then afterCharLoaded(nc) end
 					task.wait(0.5)
-					if loopAlt and not roundPaused then tpAndVerify(altCFrame) end
+					if loopAlt and not roundPaused then tpToCF(altCFrame) end
 				end
 			end
 		end
-		task.wait(0.3)
+		task.wait(0.2)
 	end
 end)
 
@@ -495,7 +520,7 @@ end)
 
 -- ===== GUI =====
 gui=Instance.new("ScreenGui")
-gui.Name="WWHub_GUI_v61" gui.ResetOnSpawn=false
+gui.Name="WWHub_GUI_v62" gui.ResetOnSpawn=false
 gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling gui.DisplayOrder=0 gui.Parent=game.CoreGui
 
 local toggleBtn=Instance.new("TextButton")
@@ -538,7 +563,7 @@ roleBadge.Parent=header Instance.new("UICorner",roleBadge).CornerRadius=UDim.new
 
 local titleLbl=Instance.new("TextLabel")
 titleLbl.Size=UDim2.new(1,-50,0,20) titleLbl.Position=UDim2.new(0,80,0,4)
-titleLbl.BackgroundTransparency=1 titleLbl.Text="⚡ WW Hub v6.1"
+titleLbl.BackgroundTransparency=1 titleLbl.Text="⚡ WW Hub v6.2"
 titleLbl.TextColor3=Color3.fromRGB(155,80,255) titleLbl.TextSize=17 titleLbl.Font=Enum.Font.GothamBold
 titleLbl.TextXAlignment=Enum.TextXAlignment.Left titleLbl.Parent=header
 
@@ -813,9 +838,8 @@ task.spawn(function()
 
 		local targets = getTargets()
 
-		-- ไม่มีคนนอก → ทำหน้าที่เหมือน alt 100% (TP ไป altCFrame ให้ main ตี)
+		-- ไม่มีคนนอก → ทำหน้าที่เหมือน alt (TP ไป altCFrame ให้ main ตี)
 		if #targets == 0 then
-			-- เลือก team Blue ถ้ายังไม่ได้เลือก
 			local bluePad = workspace:FindFirstChild("Blue Team")
 			if bluePad and not selectingTeam then
 				task.spawn(function()
@@ -833,9 +857,9 @@ task.spawn(function()
 					selectingTeam = false
 				end)
 			end
-			-- TP เหมือน alt 100% ใช้ tpAndVerify + watchdog
+			-- TP ไป altCFrame โดยตรง ไม่ชนกับ alt TP loop
 			if not selectingTeam and not isNearCF(altCFrame, tpDistLimit) then
-				tpAndVerify(altCFrame)
+				tpToCF(altCFrame)
 			end
 			task.wait(0.08)
 			continue
