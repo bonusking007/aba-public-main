@@ -299,17 +299,14 @@ local function pressKAfterTP()
 end
 
 -- ===== Alt HP Reset =====
--- ใช้หลายวิธีในการฆ่า character เพราะ hum.Health=0 อาจถูก server block
 local function killCharacter()
 	local char = getChar()
 	if not char then return end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not hum then return end
-	-- วิธี 1: set Health ตรงๆ
 	pcall(function() hum.Health = 0 end)
 	task.wait(0.1)
 	if hum.Health > 0 then
-		-- วิธี 2: FireServer Loaded (แจ้ง respawn)
 		pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Loaded"):FireServer() end)
 	end
 end
@@ -328,22 +325,18 @@ task.spawn(function()
 				if alive and ratio < 0.9 then
 					warn("[WWHub] Alt HP " .. math.floor(ratio*100) .. "% — resetting")
 					killCharacter()
-					-- รอ respawn จริงๆ
 					local w = 0
 					repeat task.wait(0.3) w += 0.3 until isCharReady() or w > 15
 					local nc = getChar()
 					if nc then afterCharLoaded(nc) end
 					task.wait(0.5)
-					if loopAlt and not roundPaused then tpToCF(altCFrame) end
 
 				elseif not alive and curHp <= 0 then
-					-- ตายแล้วรอ respawn
 					local w = 0
 					repeat task.wait(0.3) w += 0.3 until isCharReady() or w > 15
 					local nc = getChar()
 					if nc then afterCharLoaded(nc) end
 					task.wait(0.5)
-					if loopAlt and not roundPaused then tpToCF(altCFrame) end
 				end
 			end
 		end
@@ -787,13 +780,16 @@ end)
 task.spawn(function()
 	while gui.Parent do
 		if not (loopAlt or loopMain) then task.wait(0.5) continue end
-		local pad=getTeamPad()
-		if pad and not selectingTeam and not roundPaused and not timerTpDone then task.spawn(selectTeam) end
-		if not selectingTeam and not starting and not roundPaused and not timerTpDone then
-			if loopAlt and not isNearCF(altCFrame,tpDistLimit) then tpAndVerify(altCFrame)
-			elseif loopMain then
-				local mcf=getMainCF()
-				if not isNearCF(mcf,tpDistLimit) then tpAndVerify(mcf) end
+		local pad = getTeamPad()
+		if pad and not selectingTeam and not roundPaused and not timerTpDone then
+			task.spawn(selectTeam)
+		end
+		if not selectingTeam and not roundPaused and not timerTpDone then
+			if loopAlt then
+				tpToCF(altCFrame) -- TP รัวทุก tick ไม่ check distance
+			elseif loopMain and not starting then
+				local mcf = getMainCF()
+				if not isNearCF(mcf, tpDistLimit) then tpAndVerify(mcf) end
 			end
 		end
 		task.wait(0.08)
@@ -838,7 +834,6 @@ task.spawn(function()
 
 		local targets = getTargets()
 
-		-- ไม่มีคนนอก → ทำหน้าที่เหมือน alt (TP ไป altCFrame ให้ main ตี)
 		if #targets == 0 then
 			local bluePad = workspace:FindFirstChild("Blue Team")
 			if bluePad and not selectingTeam then
@@ -857,7 +852,6 @@ task.spawn(function()
 					selectingTeam = false
 				end)
 			end
-			-- TP ไป altCFrame โดยตรง ไม่ชนกับ alt TP loop
 			if not selectingTeam and not isNearCF(altCFrame, tpDistLimit) then
 				tpToCF(altCFrame)
 			end
@@ -865,10 +859,8 @@ task.spawn(function()
 			continue
 		end
 
-		-- มีคนนอก → guard โจมตีทีละคน 5 วิ
 		for _, target in ipairs(targets) do
 			if not loopGuard or not gui.Parent then break end
-			-- ถ้า target หายระหว่างรอบ break ออกเช็คใหม่
 			if #getTargets() == 0 then break end
 
 			local tChar = target.Character
@@ -878,7 +870,6 @@ task.spawn(function()
 
 			local attackEnd = tick() + 5
 			while tick() < attackEnd and loopGuard and gui.Parent do
-				-- ถ้าระหว่างตีคนนอกหายหมด ออกไปเป็น alt
 				if #getTargets() == 0 then break end
 
 				tChar = target.Character
@@ -886,7 +877,6 @@ task.spawn(function()
 				tHRP = tChar:FindFirstChild("HumanoidRootPart")
 				if not tHRP or not tHRP.Parent then break end
 
-				-- TP ติดตาม target
 				local hrp = getHRP()
 				if hrp then
 					pcall(function()
@@ -914,6 +904,3 @@ end)
 task.spawn(function()
 	while gui and gui.Parent do task.wait(60) collectgarbage("collect") end
 end)
-
--- Rejoin เฉพาะ main เมื่อ alt หายหมด (hop server ใหม่)
--- ไม่มี rejoin จาก kick หรือ heartbeat แล้ว
