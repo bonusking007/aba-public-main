@@ -112,6 +112,10 @@ task.spawn(function()
 	end)
 end)
 
+local function countGuards()
+	local n=0 for _,name in ipairs(_G.guard) do if Players:FindFirstChild(name) then n+=1 end end return n
+end
+
 local function sendWebhook(label)
 	task.spawn(function()
 		pcall(function()
@@ -398,9 +402,6 @@ local function getLevel()
 end
 local function countAlts()
 	local n=0 for _,name in ipairs(_G.alt) do if Players:FindFirstChild(name) then n+=1 end end return n
-end
-local function countGuards()
-	local n=0 for _,name in ipairs(_G.guard) do if Players:FindFirstChild(name) then n+=1 end end return n
 end
 
 -- ===== Blocked Mode =====
