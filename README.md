@@ -316,7 +316,9 @@ local function killCharacter()
 end
 
 task.spawn(function()
-	while gui and gui.Parent do
+	while true do
+		if not gui then task.wait(0.2) continue end
+		if not gui.Parent then break end
 		if loopAlt and not roundPaused and not timerTpDone and not starting then
 			local hum = getHum()
 			local hrp = getHRP()
@@ -506,7 +508,9 @@ end
 
 -- G spam main
 task.spawn(function()
-	while gui and gui.Parent do
+	while true do
+		if not gui then task.wait(0.2) continue end
+		if not gui.Parent then break end
 		if loopMain and not roundPaused and not timerTpDone and not starting then pressG() end
 		task.wait(0.05)
 	end
@@ -682,14 +686,21 @@ end)
 local noClipOn=false
 task.spawn(function()
 	while gui.Parent do
-		if loopMain and not roundPaused and not timerTpDone then
+		local active = IS_MAIN or loopMain
+		if active then
 			if not noClipOn then noClipOn=true end
+			makeBase()
 			local c=getChar()
 			if c then
 				for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end
 				local hrp=getHRP()
-				if hrp and hrp.Position.Y<-10 then
-					pcall(function() hrp.CFrame=CFrame.new(hrp.Position.X,5,hrp.Position.Z) hrp.AssemblyLinearVelocity=Vector3.new(0,0,0) end)
+				local baseY = altCFrame.Position.Y - 2.5
+				if hrp and hrp.Position.Y < baseY then
+					pcall(function()
+						hrp.AssemblyLinearVelocity=Vector3.new(0,0,0)
+						hrp.AssemblyAngularVelocity=Vector3.new(0,0,0)
+						hrp.CFrame=getMainCF()
+					end)
 				end
 			end
 		else
