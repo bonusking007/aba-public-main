@@ -4,7 +4,7 @@ repeat task.wait(0.1) until game:IsLoaded()
 -- ===== CONFIG =====
 _G.main  = {"igll89dwjm52", "ephe53qzzu56", "Shuhua_Ping"}
 _G.alt   = {"ojexrppy9770", "rwfi55ngxj28", "vgakarhu6240", "ibdm14ljog99", "bnevporw3273", "mhqdcvee3722", "dagasvqp5610", "Laisbeppu11284", "Musatvizzi3621", "abafarmer96877567", "abafarmer912747567", "RicefarmerGrand1893", "grandfarmer357215", "Minesonos8632"}
-_G.guard = {"Gaeul_4122", "qaaxvbyw5047"}
+_G.guard = {"Gaeul_4122", "mnzb45psmj33"}
 -- ==================
 
 setfpscap(25)
