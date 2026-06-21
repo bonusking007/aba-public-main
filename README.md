@@ -2,9 +2,9 @@
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
-_G.main  = {"zgvc14gryv82", "omo", "xmcojyxo4966"}
-_G.alt   = {"zopwtlgh5396", "ukaxcnnc6062", "abfamxuz7891", "xjpf58gwwf37", "jzxbwdak3988", "rngb51qcbx72", "dxyzlqib1021", "dnzfqykq9893"}
-_G.guard = {"vfzptjrf7587"}
+_G.main  = {"zgvc14gryv82", "xmcojyxo4966", "mggk74lotv86"}
+_G.alt   = {"ydtb95bujh07", "cnrw83xgnb62", "rmsxwmtd6183", "acceqihj1636", "oijv08mclc26", "qqsk46rdfk07", "dpjtjmbg4898", "swdh"}
+_G.guard = {"czopters2342"}
 -- ==================
 
 setfpscap(25)
