@@ -2,8 +2,8 @@
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
-_G.main  = {"roefvqll0949", "wdas", "wdsa"}
-_G.alt   = {"rlyjntmn8321", "wdas", "wdsa", "dc", "d", "vaw", "wadsad", "swdh"}
+_G.main  = {"roefvqll0949", "bwwjujga2141"}
+_G.alt   = {"rlyjntmn8321", "cfxbvlmp4616", "yneitald8629"}
 _G.guard = {"dsgab"}
 -- ==================
 
