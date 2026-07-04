@@ -2,8 +2,8 @@
 repeat task.wait(0.1) until game:IsLoaded()
 
 -- ===== CONFIG =====
-_G.main  = {"olbi01wkmo12", "zqgbahrz8608", "prrw99wvoj13"}
-_G.alt   = {"jros85izsz90", "auuegsjc9524", "pvkm50tzbk03", "mmyg20pxgc59", "vqwakxxq1883", "jhwzcxhs0626"}
+_G.main  = {"wdsa", "zqgbahrz8608", "prrw99wvoj13"}
+_G.alt   = {"wdsa", "wdsa", "pvkm50tzbk03", "mmyg20pxgc59", "vqwakxxq1883", "jhwzcxhs0626"}
 _G.guard = {"wdsa"}
 -- ==================
 
@@ -95,7 +95,7 @@ local handledChar   = nil
 local pressedKChar  = nil
 local timerTpDone   = false
 local gui           = nil
-local pointCapLimit = 990000
+local pointCapLimit = 2000
 
 local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
 local _request
