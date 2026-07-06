@@ -1,6 +1,13 @@
 --- V.6.3
 repeat task.wait(0.1) until game:IsLoaded()
 
+warn("Anti afk running")
+game:GetService("Players").LocalPlayer.Idled:connect(function()
+warn("Anti afk ran")
+game:GetService("VirtualUser"):CaptureController()
+game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+end)
+
 -- ===== CONFIG =====
 _G.main  = {"wdsa", "wads", "wdsa"}
 _G.alt   = {"wdsa", "wdsa", "wads", "wasd", "wasd", "asd"}
