@@ -9,8 +9,8 @@ game:GetService("VirtualUser"):ClickButton2(Vector2.new())
 end)
 
 -- ===== CONFIG =====
-_G.main  = {"prrw99wvoj13", "vqwakxxq1883"}
-_G.alt   = {"wdsa", "wdsa", "wads", "wasd", "wasd", "asd"}
+_G.main  = {"prrw99wvoj13", "wasd"}
+_G.alt   = {"vqwakxxq1883", "wdsa", "wads", "wasd", "wasd", "asd"}
 _G.guard = {"wdsa"}
 -- ==================
 
