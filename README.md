@@ -102,7 +102,7 @@ local handledChar   = nil
 local pressedKChar  = nil
 local timerTpDone   = false
 local gui           = nil
-local pointCapLimit = 1000
+local pointCapLimit = 2000
 
 local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
 local _request
