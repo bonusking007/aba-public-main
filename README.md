@@ -9,7 +9,7 @@ game:GetService("VirtualUser"):ClickButton2(Vector2.new())
 end)
 
 -- ===== CONFIG =====
-_G.main  = {"qaef56przf55", "eauuomvb6701", "tdll37dwbm11", "dciouxxv6477", "hgca64abqt56", "fvhphqfe5773", "btmtplsc8632", "hhzp76qotz71"}
+_G.main  = {"qaef56przf55", "eauuomvb6701", "tdll37dwbm11", "dciouxxv6477", "hgca64abqt56", "shyf02vfkq94", "fvhphqfe5773", "btmtplsc8632", "hhzp76qotz71"}
 _G.alt   = {"wasd", "wdsa", "wads", "wasd", "wasd", "asd"}
 _G.guard = {"wdsa"}
 -- ==================
@@ -102,7 +102,7 @@ local handledChar   = nil
 local pressedKChar  = nil
 local timerTpDone   = false
 local gui           = nil
-local pointCapLimit = 2000
+local pointCapLimit = 1600
 
 local WebhookURL = "https://discord.com/api/webhooks/1453628734090514533/ddACObJX5Iuv966TcspBAEmkd5Er2ZfiVCMdoHzyONWLJ1CoqlDaAn3vg9D1GiZkvPoR"
 local _request
